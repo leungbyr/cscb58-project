@@ -1,3 +1,7 @@
+// CSCB58 Winter 2018 Final Project
+// Bubble Trouble Knockoff
+// Names: Jeffrey So, Ricky Chen, Byron Leung, Brandon Shewnarain
+// Description: Insert Description Here
 
 module project(
 		CLOCK_50,						//	On Board 50 MHz
@@ -116,282 +120,233 @@ module datapath(
 	reg [27:0] counter2;
 	
     // output of the alu
-    reg [7:0] x_alu;
+	reg [7:0] x_alu;
 	reg [6:0] y_alu;
 	reg[4:0] count;
 	reg[4:0] clear;
 	reg[4:0] draw;
 	
-	// different falling blocks x and y registers
+	// enemy movement and position
 	reg [7:0] enemyX;
 	reg [6:0] enemyY;
+	reg enemyleft;
+	reg enemyright;
+	reg enemyup;
+	reg enemydown;
 
 	
 	always@(posedge clk) begin
 	    if(!resetn) begin
 			  FSM <= 4'd0;
-       end
-		 else if (counter == 28'd50000) begin 
-				// if FSM = 0, sets the positions of the user's block
-			  if (FSM == 4'd0) begin 
-					if(count == 4'd2) begin
+		end
+		else if (counter == 28'd50000) begin 
+			// if FSM = 0, sets the positions of the user's block
+			if (FSM == 4'd0) begin 
+				if(count == 4'd2) begin
 					
-						// movement left of the user's block		
-						if (~left) begin
-							if(playerX == 0) begin
-								playerX <= 0;
-							end
-						else begin
-								playerX <= playerX - 16;
-						end
-						
-						// movement right of the user's block
-						end if(~right) begin
-								
-								if(playerX == 160) begin
-									playerX <= 160;
-								end
-								else begin
-									playerX <= playerX + 16;
-								end
-						end
-						
-						count <= 4'd0;
-					end
-					// setting initial position
-					playerX <= 80;
-					playerY <= 100;
-					FSM <= 1;
-			  end
-			  
-			  // if FSM = 1, draw the player's block and sets FSM to 3
-			  else if(FSM == 4'b1) begin
-					y <= playerY;
-					x <= playerX;
-					//Set colour of player
-					colour <= 3'b111;
-					FSM <= 3;
-					clear <=1;
-			  end
-			  
-				// if FSM = 4, wait state
-			  else if (FSM == 4'd4) begin
-					FSM <= 5;
-			  end
-			  
-			  // if FSM = 10, wait state
-			  else if(FSM == 4'd10) begin
-					FSM <= 2;
-			  end
-			  
-			  // if FSM = 9, updates the position for the falling blocks and checks the collisions
-			  else if(FSM == 4'd9) begin
-					// collision to enemy
-					if(playerX == enemyX && playerY == enemyY) begin
-						// update lives count
-						lives <= lives - 1;
-						// update the position
-						if((playerX + 30) > 120) begin
-							enemyX <= 30;
+					// movement left of the user's block
+					if (~left) begin
+						if(playerX == 0) begin
+							playerX <= 0;
 						end
 						else begin
-							enemyX <= (playerX + 30);
-						end
-						enemyY <= 0;
+							playerX <= playerX - 16;
 					end
 					
-					
-					
-					
-					// Ive cleaned up the stuff above this but still need to be tested
-					
-					
-					
-					
-					
-					
-					// if falling block reaches the bottom
-					if(enemyY == 120) begin
-					
-						// update the position
-						if((playerX + 30) > 120 || (playerX + 30) < 30) begin
-							
-							enemyX <= 60;
-							
-						end
-						else begin
-							enemyX <= (playerX + 30);
-						end
-
-						enemyY <= 0;
-
-					end
-					// if falling block reaches the bottom
-					else if(y_3 == 120) begin
-
-						// update the position
-						if((enemyX - 30) > 120 ||(enemyX - 30) < 0) begin
-							x_3 <= 90;
-						end
-						else begin
-							x_3 <= (enemyX - 30);
-						end
-						
-						y_3 <= 0;
-
-					end
-					// if falling block reaches the bottom
-					else if(y_4 == 120) begin
-						// update the position
-						if((x_3 + 30) > 120 ||(x_3 + 30) < 0) begin
-							
-							x_4 <= 90;
-							
-						end
-						else begin
-							
-							x_4 <= (x_3 - 30);
-						end
-						
-						y_4 <= 0;
-					
+					// movement right of the user's block
+					// Not sure what this end does
 					end 
-		
-					FSM <= 0;
-					
-			  end
-			  // if FSM = 5, wait state
-			  else if(FSM == 4'd5) begin
+						
+					if(~right) begin
+							
+						if(playerX == 160) begin
+							playerX <= 160;
+						end
+						else begin
+							playerX <= playerX + 16;
+						end
+					end
+						
+					count <= 4'd0;
+				end
+				// setting initial position
+				playerX <= 80;
+				playerY <= 100;
+				FSM <= 1;
+			end
+			  
+			// if FSM = 1, draw the player's block and sets FSM to 3
+			else if(FSM == 4'b1) begin
+				y <= playerY;
+				x <= playerX;
+				//Set colour of player
+				colour <= 3'b111;
+				FSM <= 3;
+				clear <=1;
+			end
+			
+			// if FSM = 2, erase the previous position of the player block
+			else if (FSM == 4'd2)begin
+
+				x <= playerX;
+				y <= playerY;
+				colour <= 3'b000;
 				
-
-					FSM <= 6;
-			  end 
-				// if FSM = 3, animate the position of the falling blocks
-			  else if(FSM == 4'd3) begin
-
-					if(enemyX <= 0) begin
+				FSM <= 9;
+			end
+			
+			// if FSM = 3, animate the position of the falling blocks
+			else if(FSM == 4'd3) begin
+			  
+				if(enemyleft <= 1) begin
+					enemyX <= enemyX - 4
+				end
+					
+				if(enemyright <= 1) begin
+					enemyX <= enemyX + 4
+				end
+					
+				if(enemyup <= 1) begin
+					enemyY <= enemyY - 4
+				end
+					
+				if(enemydown <= 1) begin
+					enemyY <= enemyY + 4
+				end
+				 
+				draw <= 1;
+				FSM <= 4;
+			end
+			
+			// if FSM = 4, wait state
+			else if (FSM == 4'd4) begin
+				FSM <= 5;
+			end
+			  
+			// if FSM = 5, wait state
+			else if(FSM == 4'd5) begin
+				FSM <= 6;
+			end 
+			
+			// if FSM = 6, wait state
+			else if (FSM == 4'd6) begin
+				FSM <= 7;
+			end
+			
+			// if FSM = 7, wait state
+			else if (FSM == 4'd7) begin
+				FSM <= 8;
+			end
+			
+			// if FSM = 8, wait state
+			else if (FSM == 4'd8) begin
+				FSM <= 2;
+			end
+			  
+			// if FSM = 9, updates the position for the falling blocks and checks the collisions
+			else if(FSM == 4'd9) begin
+				// collision to enemy
+				if(playerX == enemyX && playerY == enemyY) begin
+					// update lives count
+					lives <= lives - 1;
+					// update the position     i dont really understand what this if statement does
+					if((playerX + 30) > 120) begin
 						enemyX <= 30;
-					 end
-
-					 if(x_3 <= 0) begin
-						x_3 <= 90;
-						y_3 <= 90;
-					 end
-	
-					 if(x_4 <= 0) begin
-						x_4 <= 120;
-						y_4 <= 100;
-					 end
-					 
-					 enemyY <= enemyY + 1;
-					 y_3 <= y_3 + 1;
-					 y_4 <= y_4 + 1;
-					 
-					 draw <= 1;
-					 FSM <= 4;
-			  end
-			  // if FSM = 2, erase the previous position of the player block
-			  else if (FSM == 4'd2)begin
-
-					x <= playerX;
-					y <= playerY;
-					colour <= 3'b000;
+					end
+					else begin
+						enemyX <= (playerX + 30);
+					end
+					enemyY <= 0;
+				end
 					
-					FSM <= 9;
-			  end
-			  // if FSM = 6, wait state
-			  else if (FSM == 4'd6) begin
-					
-					 
-					 
-					 FSM <= 7;
-			  
-			  end
-			  // if FSM = 7, wait state
-			  else if (FSM == 4'd7) begin
-					FSM <= 8;
-			  end
-			  // if FSM = 8, wait state
-			  else if (FSM == 4'd8) begin
-				
-					FSM <= 2;
-			  end
-			  
-			  
-			 
-			  
-			  // set the counter back to 0
-			  counter <= 28'd0;
-			  
-			  
-				// slow down the input, so the player block doesn't move too fast
-			  count <= count + 1;
+				// if enemy hits the edges of the screen
+				//Change this number when we decide how big the enemy is
+				//Right Edge
+				if (enemyX == 160) begin
+					enemyleft <= 1'b1;
+					enemyright <= 1'b0;
+				end
+				//Left Edge
+				if (enemyX == 0) begin
+					enemyleft <= 1'b0;
+					enemyright <= 1'b1;
+				end
+				//Top Edge
+				if (enemyY == 0) begin
+					enemyup <= 1'b0;
+					enemydown <= 1'b1;
+				end
+				//Bottom Edge
+				if (enemyY == 120) begin
+					enemyup <= 1'b1;
+					enemydown <= 1'b0;
+				end
+		
+				FSM <= 0;
+			end
+			
+			// if FSM = 10, wait state
+			else if(FSM == 4'd10) begin
+				FSM <= 2;
+			end
+			// set the counter back to 0
+			counter <= 28'd0;  
+			
+			// slow down the input, so the player block doesn't move too fast
+			count <= count + 1;
 
 	    end
 		 
-		 else begin
+		else begin
 			// this block operates outside of the rate divider and used for drawing and clearing falling blocks
 			// increase counter, used as a rate divider
 		 	counter <= counter + 1;
 			
 			// if clear = 1, signal for erasing the 1st falling block
-			 if(clear == 4'd1) begin
-			  
-			  
-					x <= enemyX;
-					y <= enemyY;
+			if(clear == 4'd1) begin
+				x <= enemyX;
+				y <= enemyY;
 					
-					colour <= 1'b000;
-					clear <= 2;
-			  end
-			  // if clear = 2, signal for erasing the 2nd falling block
-			  else if(clear == 4'd2) begin
+				colour <= 1'b000;
+				clear <= 2;
+			end
+			// if clear = 2, signal for erasing the 2nd falling block
+			else if(clear == 4'd2) begin
+				x <= x_3;
+				y <= y_3;
+				clear <= 3;
+			end
+			// if clear = 3, signal for erasing the 3rd falling block
+			else if(clear == 4'd3) begin
+				x <= x_4;
+				y <= y_4;
+				clear <= 0;
+			end
 			  
-			  
-					x <= x_3;
-					y <= y_3;
-					clear <= 3;
-			  end
-			  // if clear = 3, signal for erasing the 3rd falling block
-			  else if(clear == 4'd3) begin
-			  
-			  
-					x <= x_4;
-					y <= y_4;
-					clear <= 0;
-			  end
-			  
-			  
-			  // if draw = 1, draw the 1st falling block
-			  if(draw == 4'd1) begin
-					x <= enemyX;
-					y <= enemyY;
-				
+			// if draw = 1, draw the 1st falling block
+			if(draw == 4'd1) begin
+				x <= enemyX;
+				y <= enemyY;
 
-					colour <= 3'b110;
-					draw <= 2;
-			  
-			  end
-			  // if draw = 2, draw the 2nd falling block
-			  else if(draw == 4'd2) begin
-			  
-					x <= x_3;
-					y <= y_3;
+				colour <= 3'b110;
+				draw <= 2;
+			end
+			// if draw = 2, draw the 2nd falling block
+			else if(draw == 4'd2) begin  
+				x <= x_3;
+				y <= y_3;
 				
-
-					colour <= 3'b011;
-					draw <= 3;
-			  end
-			  // if draw = 3, draw the 3rd falling block
-			  else if(draw == 4'd3) begin
-			  
-					x <= x_4;
-					y <= y_4;
+				colour <= 3'b011;
+				draw <= 3;
+			end
+			// if draw = 3, draw the 3rd falling block
+			else if(draw == 4'd3) begin  
+				x <= x_4;
+				y <= y_4;
 				
-
-					colour <= 3'b100;
-					draw <= 0;
-			  end
+				colour <= 3'b100;
+				draw <= 0;
+			end
 	    end
 end
 endmodule

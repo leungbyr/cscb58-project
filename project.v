@@ -3,8 +3,7 @@
 // Names: Jeffrey So, Ricky Chen, Byron Leung, Brandon Shewnarain
 // Description: Insert Description Here
 
-module project
-	(
+module project(
 		CLOCK_50,						//	On Board 50 MHz
 		// Your inputs and outputs here
         KEY,
@@ -13,28 +12,33 @@ module project
 		VGA_CLK,   						//	VGA Clock
 		VGA_HS,							//	VGA H_SYNC
 		VGA_VS,							//	VGA V_SYNC
-		VGA_BLANK_N,						//	VGA BLANK
+		VGA_BLANK_N,					//	VGA BLANK
 		VGA_SYNC_N,						//	VGA SYNC
 		VGA_R,   						//	VGA Red[9:0]
 		VGA_G,	 						//	VGA Green[9:0]
-		VGA_B   						//	VGA Blue[9:0]
+		VGA_B,   						//	VGA Blue[9:0]
+		HEX0, 
+		HEX1
 	);
 
-	input			CLOCK_50;				//	50 MHz
-	input   [9:0]   SW;
-	input   [4:0]   KEY;
+	input CLOCK_50;	//	50 MHz
+	input [9:0] SW;
+	input [3:0] KEY;
 
 	// Declare your inputs and outputs here
 	// Do not change the following outputs
 	output			VGA_CLK;   				//	VGA Clock
 	output			VGA_HS;					//	VGA H_SYNC
 	output			VGA_VS;					//	VGA V_SYNC
-	output			VGA_BLANK_N;				//	VGA BLANK
+	output			VGA_BLANK_N;			//	VGA BLANK
 	output			VGA_SYNC_N;				//	VGA SYNC
 	output	[9:0]	VGA_R;   				//	VGA Red[9:0]
 	output	[9:0]	VGA_G;	 				//	VGA Green[9:0]
 	output	[9:0]	VGA_B;   				//	VGA Blue[9:0]
 	
+	
+	output [6:0] HEX0, HEX1;
+
 	wire resetn;
 	assign resetn = KEY[0];
 	
@@ -45,7 +49,7 @@ module project
 	wire writeEn;
 
 	// Create an Instance of a VGA controller - there can be only one!
-	// Define the number of colours as well as the initial background
+	// Define the number of colours as well as the initial ground
 	// image file (.MIF) for the controller.
 	vga_adapter VGA(
 			.resetn(resetn),
@@ -53,7 +57,8 @@ module project
 			.colour(colour),
 			.x(x),
 			.y(y),
-			.plot(writeEn),
+			.plot(1'b1),
+			/* Signals for the DAC to drive the monitor. */
 			.VGA_R(VGA_R),
 			.VGA_G(VGA_G),
 			.VGA_B(VGA_B),
@@ -65,75 +70,33 @@ module project
 		defparam VGA.RESOLUTION = "160x120";
 		defparam VGA.MONOCHROME = "FALSE";
 		defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
-		defparam VGA.BACKGROUND_IMAGE = "black.mif";
+		defparam VGA.BACKGROUND_IMAGE = "background.mif";
 			
 	// Put your code here. Your code should produce signals x,y,colour and writeEn/plot
 	// for the VGA controller, in addition to any other functionality your design may require.
-    
-	wire go, load_game, game_pause, play;
-	assign go = ~KEY[4];
+	wire [6:0] datain;
+	wire load_x, load_y, load_r, load_c, ld_alu_out;
+	wire go, loadEn;
 	
-    // Instansiate datapath
-	 datapath d0(.resetn(resetn), .pos(SW[6:0]), .col_in(SW[9:7]), .loadX(control_x), .loadY(control_y), .clk(CLOCK_50), .x(x), .y(y), .colour(colour));
+	wire left, right;
+	wire [7:0] data_result;
+	wire [1:0] lives;
+	assign left = KEY[3];
+	assign right = KEY[2];
 	
-    // Instansiate FSM control
-    control c0(.clk(CLOCK_50), .resetn(resetn), .go(go), .load_game(load_game), .game_pause(game_pause), .play(play));
+	datapath d1(CLOCK_50, resetn, left, right, x, y, colour, data_result, lives);
+
+	hex_decoder H0(
+        .hex_digit(data_result[3:0]), 
+        .segments(HEX0)
+        );
+        
+    hex_decoder H1(
+        .hex_digit(data_result[7:4]), 
+        .segments(HEX1)
+        );
+
     
-endmodule
-
-module control(clk, resetn, go, load_game, game_pause, play);
-	input clk, resetn, go;
-	output load_game, game_pause, play;
-
-	reg [2:0] state, state_next; // current state, next state
-	localparam LEVEL_SELECT = 3'b000, LOAD_LEVEL = 3'b001, LEVEL_PAUSE = 3'b010, PLAY_START = 3'b011, PLAY = 3'b100, GAME_OVER = 3'b101; // states
-
-	always@(*)
-    begin: state_table
-        case (state)
-            LEVEL_SELECT: begin
-				if (go) state_next <= LOAD_LEVEL;
-                else state_next <= LEVEL_SELECT;
-            end
-
-            LOAD_LEVEL: begin
-				if (!go) state_next <= LEVEL_PAUSE;
-					else state_next <= LOAD_LEVEL;
-            end
-
-            LEVEL_PAUSE: begin
-				if (go) state_next <= PLAY_START;
-					else state_next <= LEVEL_PAUSE;
-				end
-
-            PLAY_START: begin
-				if (!go) state_next <= PLAY;
-					else state_next <= PLAY_START;
-				end
-
-				PLAY: begin
-				if (go) state_next <= LEVEL_PAUSE;
-					else state_next <= LOAD_LEVEL; // Not sure which state this should be
-				end
-
-            default: state_next = LEVEL_SELECT;
-        endcase
-    end // state_table
-    
-    // State Registers
-    always @(posedge clk)
-    begin: state_FFs
-        if(resetn == 1'b0)
-            state <= LEVEL_SELECT; // Should set reset state to state A
-        else
-            state <= state_next;
-    end // state_FFS
-
-    // Output logic
-    assign load_game = (state == LOAD_LEVEL);
-	 assign game_pause = (state == LEVEL_PAUSE);
-	 assign play = (state == PLAY);
-
 endmodule
 
 module datapath(
@@ -141,26 +104,22 @@ module datapath(
 	input resetn,
 	input left,
 	input right,
-	input col_in, // Created to successfully compile prob will be removed.
-	input loadX, // Created to successfully compile prob will be removed.
-	input loadY,// Created to successfully compile prob will be removed.
-	input pos,// Created to successfully compile prob will be removed.
-   output reg [7:0] x,
+    output reg [7:0] x,
 	output reg [6:0] y,
 	output reg [2:0] colour,
-	output reg [7:0] data_result,
+	output reg [7:0] data_result
 	output reg [1:0] lives
-   ); 
+    ); 
 	reg [4:0] FSM;
 	 
-   // input registers
-   reg [7:0] playerX;
+    // input registers
+    reg [7:0] playerX;
 	reg [6:0] playerY;
 	
 	reg [27:0] counter;
 	reg [27:0] counter2;
 	
-   // output of the alu
+    // output of the alu
 	reg [7:0] x_alu;
 	reg [6:0] y_alu;
 	reg[4:0] count;
@@ -170,17 +129,16 @@ module datapath(
 	// enemy movement and position
 	reg [7:0] enemyX;
 	reg [6:0] enemyY;
-	reg [7:0] enemyleft;
-	reg [6:0] enemyright;
-	reg [7:0] enemyup;
-	reg [6:0] enemydown;
+	reg enemyleft;
+	reg enemyright;
+	reg enemyup;
+	reg enemydown;
 
 	
 	always@(posedge clk) begin
-	   if(!resetn) begin
+	    if(!resetn) begin
 			  FSM <= 4'd0;
 		end
-		
 		else if (counter == 28'd50000) begin 
 			// if FSM = 0, sets the positions of the user's block
 			if (FSM == 4'd0) begin 
@@ -191,7 +149,6 @@ module datapath(
 						if(playerX == 0) begin
 							playerX <= 0;
 						end
-
 						else begin
 							playerX <= playerX - 16;
 					end
@@ -205,7 +162,6 @@ module datapath(
 						if(playerX == 160) begin
 							playerX <= 160;
 						end
-
 						else begin
 							playerX <= playerX + 16;
 						end
@@ -243,19 +199,19 @@ module datapath(
 			else if(FSM == 4'd3) begin
 			  
 				if(enemyleft <= 1) begin
-					enemyX <= enemyX - 4;
+					enemyX <= enemyX - 4
 				end
 					
 				if(enemyright <= 1) begin
-					enemyX <= enemyX + 4;
+					enemyX <= enemyX + 4
 				end
 					
 				if(enemyup <= 1) begin
-					enemyY <= enemyY - 4;
+					enemyY <= enemyY - 4
 				end
 					
 				if(enemydown <= 1) begin
-					enemyY <= enemyY + 4;
+					enemyY <= enemyY + 4
 				end
 				 
 				draw <= 1;
@@ -352,18 +308,6 @@ module datapath(
 				y <= enemyY;
 					
 				colour <= 1'b000;
-				clear <= 2;
-			end
-			// if clear = 2, signal for erasing the 2nd falling block
-			else if(clear == 4'd2) begin
-				x <= enemyleft;
-				y <= enemyright;
-				clear <= 3;
-			end
-			// if clear = 3, signal for erasing the 3rd falling block
-			else if(clear == 4'd3) begin
-				x <= enemyup;
-				y <= enemydown;
 				clear <= 0;
 			end
 			  
@@ -373,22 +317,6 @@ module datapath(
 				y <= enemyY;
 
 				colour <= 3'b110;
-				draw <= 2;
-			end
-			// if draw = 2, draw the 2nd falling block
-			else if(draw == 4'd2) begin  
-				x <= enemyleft;
-				y <= enemyright;
-				
-				colour <= 3'b011;
-				draw <= 3;
-			end
-			// if draw = 3, draw the 3rd falling block
-			else if(draw == 4'd3) begin  
-				x <= enemyup;
-				y <= enemydown;
-				
-				colour <= 3'b100;
 				draw <= 0;
 			end
 	    end

@@ -81,13 +81,20 @@ module project
     assign right = ~KEY[2];
     
     wire load_level, level_pause, play; // game states
-    wire [7:0] playerX, playerY;
+    wire [7:0] playerX, playerY, enemyX, enemyY;
     wire [2:0] ani_state;
     wire player_move, animate_done;
     
+	// DEBUGGING
+    // assign LEDR[0] = load_level;
+    // assign LEDR[1] = level_pause;
+    // assign LEDR[2] = play;
+	
     datapath d0(
         .playerX(playerX),
         .playerY(playerY),
+		.enemyX(enemyX),
+		.enemyY(enemyY),
         .load_level(load_level),
         .level_pause(level_pause),
         .play(play),
@@ -119,6 +126,8 @@ module project
         .move(player_move),
         .playerX(playerX),
         .playerY(playerY)
+		.enemyX(enemyX),
+		.enemyY(enemyY)
     );
     
     animate_control ac0(
@@ -130,10 +139,6 @@ module project
         .ani_state(ani_state)
     );
     
-    // TODO: debugging
-    // assign LEDR[0] = load_level;
-    // assign LEDR[1] = level_pause;
-    // assign LEDR[2] = play;
 endmodule
 
 module control(go, resetn, clk, load_level, level_pause, play);
@@ -198,16 +203,22 @@ module player_control(
     input clk,
     output reg move,
     output reg [7:0] playerX,
-    output reg [6:0] playerY
+    output reg [6:0] playerY,
+	output reg [7:0] enemyX,
+	output reg [6:0] enemyY
     );
     
     localparam RATE_DIV = 249999; // for changing move speed
     localparam START_X = 80, START_Y = 100, SCREEN_W = 160, SCREEN_H = 120;
+	localparam enemyup = 0, enemydown = 0, enemyright = 0, enemyleft = 0;
     reg [27:0] counter;
+	reg [27:0] ecounter;
     
     initial begin
         playerX <= START_X;
         playerY <= START_Y;
+		enemyX <= 80;
+		enemyY <= 50;
     end
     
     always@(posedge clk) begin
@@ -219,36 +230,113 @@ module player_control(
         end
         
         if (play) begin
+		// Player is controlled by inputs
             if (left) begin
                 if (counter == RATE_DIV) begin
                     if (playerX > 0)
                         playerX <= playerX - 1;
-                    else
-                        playerX <= SCREEN_W;
+					// We dont need this section because we dont want it to be a circular map, its just not how the game works
+                    //else
+                        //playerX <= SCREEN_W;
                     
                     move <= 1;
                     counter <= 0;
-                end else begin
+                end
+				else begin
                     counter <= counter + 1;
                     move <= 0;
                 end
-            end else if (right) begin
+            end
+			else if (right) begin
                 if (counter == RATE_DIV) begin
                     if (playerX < SCREEN_W)
                         playerX <= playerX + 1;
-                    else
-                        playerX <= 0;
+					// We dont need this part because we dont want the map to be circular
+                    //else
+                    //    playerX <= 0;
                     
                     move <= 1;
                     counter <= 0;
-                end else begin
+                end
+				else begin
                     counter <= counter + 1;
                     move <= 0;
                 end
-            end else begin
+            end
+			else begin
                 move <= 0;
                 counter <= 0;
             end
+			
+			// Enemy is controlled automatically
+			if(enemyup) begin
+				if (ecounter == RATE_DIV) begin
+                    if (enemyY > 0)
+                        enemyX <= enemyX - 1;
+                    
+                    move <= 1;
+                    ecounter <= 0;
+					else begin
+						enemyup = 0;
+						enemydown = 1;
+					end
+                end
+				else begin
+                    ecounter <= ecounter + 1;
+                    move <= 0;
+                end
+			end
+			else if (enemydown) begin
+				if (ecounter == RATE_DIV) begin
+                    if (enemyY < 120)
+                        enemyX <= enemyX + 1;
+                    
+                    move <= 1;
+                    ecounter <= 0;
+					else begin
+						enemyup = 1;
+						enemydown = 0;
+					end
+                end
+				else begin
+                    ecounter <= ecounter + 1;
+                    move <= 0;
+                end
+			end
+			else if (enemyleft) begin
+				if (ecounter == RATE_DIV) begin
+                    if (enemyX > 0)
+                        enemyX <= enemyX - 1;
+                    
+                    move <= 1;
+                    ecounter <= 0;
+					else begin
+						enemyleft = 0;
+						enemyright = 1;
+					end
+                end
+				else begin
+                    ecounter <= ecounter + 1;
+                    move <= 0;
+                end
+			end
+			else if (enemyright) begin
+				if (ecounter == RATE_DIV) begin
+                    if (enemyY < 160 )
+                        enemyX <= enemyX + 1;
+                    
+                    move <= 1;
+                    ecounter <= 0;
+					else begin
+						enemyleft = 1;
+						enemyright = 0;
+					end
+                end
+				else begin
+                    ecounter <= ecounter + 1;
+                    move <= 0;
+                end
+			end
         end
     end
 endmodule
@@ -264,20 +352,24 @@ module animate_control(
     );
     
     reg [2:0] state_next;
-    localparam IDLE = 3'b000, PLAYER = 3'b001, LEVEL = 3'b010; // draw states
+    localparam IDLE = 3'b000, DRAWPLAYER = 3'b001, LEVEL = 3'b010, ERASEPLAYER = 3'b011, ERASEtoDRAW = 3'b100; // draw states
     
     always@(*)
     begin: state_table
         case (ani_state)
             IDLE: begin
-                if (player_move) state_next <= PLAYER;
+                if (player_move) state_next <= ERASEPLAYER;
                 else if (load_level) state_next <= LEVEL;
                 else state_next <= IDLE;
             end
-            PLAYER: begin
+            DRAW: begin
                 if (ani_done) state_next <= IDLE;
-                else state_next <= PLAYER;
+                else state_next <= DRAWPLAYER;
             end
+			ERASE: begin
+				if (ani_done) state_next <= ERASEtoDRAW
+				else state_next <= ERASEPLAYER;
+			end
             LEVEL: begin
                 if (ani_done) state_next <= IDLE;
                 else state_next <= LEVEL;
@@ -300,6 +392,8 @@ endmodule
 module datapath(
     input [7:0] playerX,
     input [6:0] playerY,
+	input [7:0] enemyX,
+    input [6:0] enemyY,
     input load_level,
     input level_pause,
     input play,
@@ -313,7 +407,7 @@ module datapath(
     output reg drawEn
     );
 
-    localparam IDLE = 3'b000, PLAYER = 3'b001, LEVEL = 3'b010; // draw states
+    localparam IDLE = 3'b000, DRAWPLAYER = 3'b001, LEVEL = 3'b010, ERASEPLAYER = 3'b011; // draw states
     
     initial begin
 		colour <= 3'b111;
@@ -323,7 +417,8 @@ module datapath(
     always@(posedge clk) begin
         if (!resetn) begin
             // TODO: clear the screen
-        end else if (ani_state == LEVEL) begin
+        end
+		else if (ani_state == LEVEL) begin
             // TODO: draw the level
             drawEn <= 1;
             x <= playerX;
@@ -331,15 +426,29 @@ module datapath(
             
             // when finished drawing
             ani_done <= 1;
-        end else if (ani_state == PLAYER) begin
-            // TODO: draw the player and erase old player
+        end
+		else if (ani_state == DRAWPLAYER) begin
+            // TODO: draw the screen
             drawEn <= 1;
+			colour = 3'b111;
             x <= playerX;
             y <= playerY;
             
             // when finished drawing
             ani_done <= 1;
-        end else begin
+        end
+		else if (ani_state == ERASEPLAYER) begin
+            // TODO: erase old screen
+            drawEn <= 1;
+			colour = 3'b000;
+			//it should retain its old position at this point
+            //x <= x;
+            //y <= y;
+            
+            // when finished drawing
+            ani_done <= 1;
+        end
+		else begin
             drawEn <= 0;
             ani_done <= 0;
         end

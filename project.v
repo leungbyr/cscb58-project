@@ -133,9 +133,11 @@ module project
         .ani_done(animate_done),
         .resetn(resetn),
         .clk(CLOCK_50),
-        .ani_state(ani_state)
+        .state(ani_state)
     );
     
+	// test 3x3 enemy spawned at (80, 60) moving at 45 degree angle down and to the right
+	// I didn't actually try to draw the enemy yet, only calculated the x and y
     enemy_control ec0(
         .size(3'd3),
         .start_x(8'd80),
@@ -152,7 +154,7 @@ module project
     );
 endmodule
 
-// Controls game states
+// controls game states
 module control(go, resetn, clk, load_level, level_pause, play);
     input go, resetn, clk;
     output load_level, level_pause, play;
@@ -207,14 +209,14 @@ module control(go, resetn, clk, load_level, level_pause, play);
     assign play = (state == PLAY);
 endmodule
 
-// Controls what is being drawn
+// controls what is being drawn
 module animate_control(
     input load_level,
     input player_move,
     input ani_done,
     input resetn,
     input clk,
-    output reg [2:0] ani_state
+    output reg [2:0] state
     );
     
     reg [2:0] state_next;
@@ -223,7 +225,7 @@ module animate_control(
     
     always@(*)
     begin: state_table
-        case (ani_state)
+        case (state)
             IDLE: begin
                 if (player_move) state_next <= ERASEPLAYER;
                 else if (load_level) state_next <= LEVEL;
@@ -249,13 +251,13 @@ module animate_control(
     always @(posedge clk)
     begin: state_FFs
         if(!resetn)
-            ani_state <= IDLE;
+            state <= IDLE;
         else
-            ani_state <= state_next;
+            state <= state_next;
     end // state_FFS
 endmodule
 
-// Does the drawing
+// does the drawing
 module datapath(
     input [7:0] playerX,
     input [6:0] playerY,
@@ -287,7 +289,7 @@ module datapath(
             drawEn <= 1;
             x <= playerX;
             y <= playerY;
-            // when finished drawing
+            // when finished drawing, set ani_done to 1
             ani_done <= 1;
         end
         else if (ani_state == DRAWPLAYER) begin
@@ -296,18 +298,17 @@ module datapath(
             colour = 3'b111;
             x <= playerX;
             y <= playerY;
-            // when finished drawing
+            // when finished drawing, set ani_done to 1
             ani_done <= 1;
         end
         else if (ani_state == ERASEPLAYER) begin
             // TODO: erase old screen
             drawEn <= 1;
             colour = 3'b000;
-            //it should retain its old position at this point
+            // it should retain its old position at this point
             //x <= x;
             //y <= y;
-            
-            // when finished drawing
+            // when finished drawing, set ani_done to 1
             ani_done <= 1;
         end
         else begin

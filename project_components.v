@@ -12,7 +12,7 @@ module player_control(
     );
     
     localparam RATE_DIV = 28'd249999; // lower to move faster
-    localparam START_X = 8'd80, START_Y = 7'd100, SCREEN_W = 8'd160, SCREEN_H = 8'd120;
+    localparam START_X = 8'd80, START_Y = 7'd100, SCREEN_W = 8'd160, SCREEN_H = 7'd120;
     reg [27:0] counter;
     
     initial begin
@@ -62,17 +62,17 @@ module player_control(
 endmodule
 
 module enemy_control(
-    input [2:0] size,
+    input [2:0] size, // height of square enemy in pixels
     input [7:0] start_x,
     input [6:0] start_y,
-    input [2:0] d_x,
+    input [2:0] d_x, // slope d_x/d_y
     input [2:0] d_y,
-    input leftwards,
+    input leftwards, // direction of enemy when spawned
     input upwards,
     input play,
     input resetn,
     input clk,
-    output reg [7:0] enemyX,
+    output reg [7:0] enemyX, // coordinates for the top left pixel of the enemy
     output reg [6:0] enemyY
     );
     
@@ -98,14 +98,14 @@ module enemy_control(
         if (play) begin
             if (counter == RATE_DIV) begin
                 if (left) begin
-                    if (enemyX - d_x <= 0) begin // hit screen edge
+                    if (enemyX - d_x <= 0) begin // hit left edge, change directions
                         enemyX <= 0;
                         left <= 0;
                     end else begin
                         enemyX <= enemyX - d_x;
                     end
                 end else begin
-                    if (enemyX + (size - 1) + d_x >= SCREEN_W) begin // hit screen edge
+                    if (enemyX + (size - 1) + d_x >= SCREEN_W) begin // hit right edge
                         enemyX <= SCREEN_W - (size + 1);
                         left <= 1;
                     end else begin
@@ -113,14 +113,14 @@ module enemy_control(
                     end
                 end
                 if (up) begin
-                    if (enemyY - d_y <= 0) begin // hit screen edge
+                    if (enemyY - d_y <= 0) begin // hit top edge
                         enemyY <= 0;
                         up <= 0;
                     end else begin
                         enemyY <= enemyY - d_y;
                     end
                 end else begin
-                    if (enemyY + (size - 1) + d_y >= SCREEN_H) begin // hit screen edge
+                    if (enemyY + (size - 1) + d_y >= SCREEN_H) begin // hit bottom edge
                         enemyY <= SCREEN_H - (size + 1);
                         up <= 1;
                     end else begin

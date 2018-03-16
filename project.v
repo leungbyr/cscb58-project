@@ -83,7 +83,7 @@ module project
     wire load_level, level_pause, play; // game states
     wire [7:0] playerX, playerY, enemyX, enemyY;
     wire [2:0] ani_state;
-    wire player_move, animate_done;
+    wire player_move, animate_done, player_hit;
     
     // DEBUGGING
     // assign LEDR[0] = load_level;
@@ -136,8 +136,8 @@ module project
         .state(ani_state)
     );
     
-	// test 3x3 enemy spawned at (80, 60) moving at 45 degree angle down and to the right
-	// I didn't actually try to draw the enemy yet, only calculated the x and y
+    // test 3x3 enemy spawned at (80, 60) moving at 45 degree angle down and to the right
+    // I didn't actually try to draw the enemy yet, only calculated the x and y
     enemy_control ec0(
         .size(3'd3),
         .start_x(8'd80),
@@ -146,9 +146,12 @@ module project
         .d_y(1),
         .leftwards(0),
         .upwards(0),
+        .playerX(playerX),
+        .playerY(playerY),
         .play(play),
         .resetn(resetn),
         .clk(CLOCK_50),
+        .player_hit(player_hit),
         .enemyX(enemyX),
         .enemyY(enemyY)
     );

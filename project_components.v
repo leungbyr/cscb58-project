@@ -65,19 +65,23 @@ module enemy_control(
     input [2:0] size, // height of square enemy in pixels
     input [7:0] start_x,
     input [6:0] start_y,
-    input [2:0] d_x, // slope d_x/d_y
+    input [2:0] d_x, // slope d_y/d_x
     input [2:0] d_y,
     input leftwards, // direction of enemy when spawned
     input upwards,
+    input [7:0] playerX,
+    input [6:0] playerY,
     input play,
     input resetn,
     input clk,
+    output reg player_hit, // player collision
     output reg [7:0] enemyX, // coordinates for the top left pixel of the enemy
     output reg [6:0] enemyY
     );
     
     localparam RATE_DIV = 28'd249999; // lower to move faster
     localparam SCREEN_W = 8'd160, SCREEN_H = 7'd120;
+    localparam PLAYER_SIZE = 2'd3;
     reg [27:0] counter;
     reg left, up;
     
@@ -87,6 +91,7 @@ module enemy_control(
         counter <= 0;
         left <= leftwards;
         up <= upwards;
+        player_hit <= 0;
     end
     
     always@(posedge clk) begin
@@ -94,6 +99,7 @@ module enemy_control(
             enemyX <= start_x;
             enemyY <= start_y;
             counter <= 0;
+            player_hit <= 0;
         end
         if (play) begin
             if (counter == RATE_DIV) begin
@@ -130,6 +136,12 @@ module enemy_control(
                 counter <= 0;
             end else begin
                 counter <= counter + 1;
+            end
+            
+            // collision with player
+            if ((playerX <= enemyX + (size - 1) && enemyX <= playerX + (PLAYER_SIZE - 1))
+                && (playerY <= enemyY + (size - 1) && enemyY <= playerY + (PLAYER_SIZE - 1))) begin
+                player_hit <= 1;
             end
         end
     end

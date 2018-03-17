@@ -85,6 +85,16 @@ module enemy_control(
     reg [27:0] counter;
     reg left, up;
     
+    // Initialize the enemy with it's startpoint and direction.
+	initial begin
+		enemyX <= start_x;
+		enemyY <= start_y;
+		counter <= 0;
+		left <= leftwards;
+		up <= upwards;
+		player_hit <= 0;	
+	end
+	/*
     always@(start_x, start_y, leftwards, upwards) begin
         enemyX <= start_x;
         enemyY <= start_y;
@@ -93,6 +103,7 @@ module enemy_control(
         up <= upwards;
         player_hit <= 0;
     end
+    */
     
     always@(posedge clk) begin
         if (!resetn) begin

@@ -81,7 +81,8 @@ module project
     assign right = ~KEY[2];
     
     wire load_level, level_pause, play; // game states
-    wire [7:0] playerX, playerY, enemyX, enemyY;
+    wire [7:0] playerX, enemyX;
+    wire [6:0] playerY, enemyY;
     wire [2:0] ani_state;
     wire player_move, animate_done, player_hit;
     
@@ -142,12 +143,13 @@ module project
         .size(3'd3),
         .start_x(8'd80),
         .start_y(7'd60),
-        .d_x(1),
-        .d_y(1),
-        .leftwards(0),
-        .upwards(0),
+        .d_x(3'd1),
+        .d_y(3'd1),
+        .leftwards(1'b0),
+        .upwards(1'b0),
         .playerX(playerX),
         .playerY(playerY),
+        .load_level(load_level),
         .play(play),
         .resetn(resetn),
         .clk(CLOCK_50),
@@ -276,7 +278,7 @@ module datapath(
     output reg drawEn
     );
 
-    localparam IDLE = 3'b000, DRAWPLAYER = 3'b001, LEVEL = 3'b010, ERASEPLAYER = 3'b011; // draw states
+    localparam IDLE = 3'b000, DRAWPLAYER = 3'b001, LEVEL = 3'b010, ERASEPLAYER = 3'b011; // drawing
     
     initial begin
         colour <= 3'b111;

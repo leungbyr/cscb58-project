@@ -14,7 +14,7 @@
 
 module project
     (
-        CLOCK_50,                       //  On Board 50 MHz
+        CLOCK2_50,                       //  On Board 50 MHz
         // Your inputs and outputs here
         KEY,
         SW,
@@ -30,7 +30,7 @@ module project
         VGA_B                           //  VGA Blue[9:0]
     );
 
-    input           CLOCK_50;               //  50 MHz
+    input           CLOCK2_50;               //  50 MHz
     input   [9:0]   SW;
     input   [3:0]   KEY;
     output [17:0] LEDR;
@@ -59,7 +59,7 @@ module project
     // image file (.MIF) for the controller.
     vga_adapter VGA(
             .resetn(resetn),
-            .clock(CLOCK_50),
+            .clock(CLOCK2_50),
             .colour(colour),
             .x(x),
             .y(y),
@@ -85,10 +85,13 @@ module project
     assign right = ~KEY[2];
     
     wire load_level, level_pause, play; // game states
-    wire [7:0] playerX, playerY, enemyX, enemyY;
+    wire [7:0] playerX, enemyX;
+	 wire [6:0] playerY, enemyY;
     wire [2:0] ani_state;
-    wire player_move, animate_done;
+    wire player_move, animate_done, player_hit, enemy_move;
 	 wire [27:0] count;
+	 wire [2:0] enemy_size;
+	 assign enemy_size = 3'd7;
     
     // DEBUGGING
     assign LEDR[0] = load_level;
@@ -101,9 +104,10 @@ module project
         .playerY(playerY),
         .enemyX(enemyX),
         .enemyY(enemyY),
+		  .enemy_size(enemy_size),
         .ani_state(ani_state),
         .resetn(resetn),
-        .clk(CLOCK_50),
+        .clk(CLOCK2_50),
         .ani_done(animate_done),
         .x(x),
         .y(y),
@@ -115,7 +119,7 @@ module project
     control c0(
         .go(go),
         .resetn(resetn),
-        .clk(CLOCK_50),
+        .clk(CLOCK2_50),
         .load_level(load_level),
         .level_pause(level_pause),
         .play(play)
@@ -126,27 +130,26 @@ module project
         .right(right),
         .play(play),
         .resetn(resetn),
-        .clk(CLOCK_50),
+        .clk(CLOCK2_50),
         .move(player_move),
         .playerX(playerX),
         .playerY(playerY),
-        .enemyX(enemyX),
-        .enemyY(enemyY)
     );
     
     animate_control ac0(
         .load_level(load_level),
         .player_move(player_move),
+		  .enemy_move(enemy_move),
         .ani_done(animate_done),
         .resetn(resetn),
-        .clk(CLOCK_50),
+        .clk(CLOCK2_50),
         .ani_state(ani_state)
     );
     
 	// test 3x3 enemy spawned at (80, 60) moving at 45 degree angle down and to the right
 	// I didn't actually try to draw the enemy yet, only calculated the x and y
     enemy_control ec0(
-        .size(3'd3),
+        .size(enemy_size),
         .start_x(8'd80),
         .start_y(7'd60),
         .d_x(1),
@@ -155,7 +158,9 @@ module project
         .upwards(0),
         .play(play),
         .resetn(resetn),
-        .clk(CLOCK_50),
+        .clk(CLOCK2_50),
+		  .player_hit(player_hit),
+		  .move(enemy_move),
         .enemyX(enemyX),
         .enemyY(enemyY)
     );
@@ -220,6 +225,7 @@ endmodule
 module animate_control(
     input load_level,
     input player_move,
+	 input enemy_move,
     input ani_done,
     input resetn,
     input clk,
@@ -235,7 +241,7 @@ module animate_control(
         case (ani_state)
             IDLE: begin
                 if (player_move) state_next <= ERASE;
-                else if (load_level) state_next <= LEVEL;
+					 else if (enemy_move || load_level) state_next <= ERASE;
                 else state_next <= IDLE;
             end
             DRAW: begin
@@ -274,6 +280,7 @@ module datapath(
     input [6:0] playerY,
     input [7:0] enemyX,
     input [6:0] enemyY,
+	 input [2:0] enemy_size,
     input [2:0] ani_state,
     input resetn,
     input clk,
@@ -328,10 +335,10 @@ module datapath(
 					x <= 0;
 					y <= 0;
 				end else if (counter < 28'd20000) begin
-					if (y <= `SCREEN_H - 1) begin
-						if (x < `SCREEN_W - 1) begin
+					if (y <= `SCREEN_H + 1) begin
+						if (x < `SCREEN_W) begin
 							x <= x + 1;
-						end else if (y < `SCREEN_H - 1) begin
+						end else if (y < `SCREEN_H + 1) begin
 							x <= 0;
 							y <= y + 1;
 						end
@@ -340,7 +347,7 @@ module datapath(
 				counter <= counter + 1;
 				
             // when finished drawing, set ani_done to 1
-				if (counter == `SCREEN_W * `SCREEN_H) begin
+				if (counter == `SCREEN_W * (`SCREEN_H + 1)) begin
 					ani_done <= 1'b1;
 				end
         end else if (ani_state == DRAW) begin
@@ -359,11 +366,24 @@ module datapath(
 							y <= y + 1;
 						end
 					end
+				end else if (counter <= 28'd200) begin	// drawing the enemy now
+					if (counter == 28'd100) begin
+						x <= enemyX;
+						y <= enemyY;
+					end else if (y <= enemyY + enemy_size - 1) begin
+						if (x < enemyX + enemy_size - 1) begin
+							x <= x + 1;
+						end else if (y < enemyY + enemy_size - 1) begin
+							x <= enemyX;
+							y <= y + 1;
+						end
+					end
 				end
 				counter <= counter + 1;
 				
             // when finished drawing, set ani_done to 1
-				if (counter == `PLAYER_SIZE * `PLAYER_SIZE) begin
+				// TODO: un-hardcode
+				if (counter == (`PLAYER_SIZE * `PLAYER_SIZE) + 200) begin
 					ani_done <= 1'b1;
 				end
         end else begin

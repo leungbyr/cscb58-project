@@ -10,13 +10,11 @@ module player_control(
     input clk,
     output reg move,
     output reg [7:0] playerX, // x and y for top left pixel of player
-    output reg [6:0] playerY,
-    output reg [7:0] enemyX,
-    output reg [6:0] enemyY
+    output reg [6:0] playerY
     );
     
-    localparam RATE_DIV = 28'd249999; // lower to move faster
-    localparam START_X = 8'd80, START_Y = 7'd100;
+    localparam RATE_DIV = 28'd500000; // lower to move faster
+    localparam START_X = 8'd80, START_Y = 7'd115;
     reg [27:0] counter;
     
     initial begin
@@ -80,11 +78,12 @@ module enemy_control(
     input resetn,
     input clk,
     output reg player_hit, // player collision
+	 output reg move,
     output reg [7:0] enemyX, // coordinates for the top left pixel of the enemy
     output reg [6:0] enemyY
     );
     
-    localparam RATE_DIV = 28'd249999; // lower to move faster
+    localparam RATE_DIV = 28'd1000000; // lower to move faster
     reg [27:0] counter;
     reg left, up;
     
@@ -130,8 +129,10 @@ module enemy_control(
                     end
                 end
                 counter <= 0;
+					 move <= 1;
             end else begin
                 counter <= counter + 1;
+					 move <= 0;
             end
             
             // collision with player

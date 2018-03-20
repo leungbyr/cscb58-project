@@ -10,7 +10,7 @@
 
 `define SCREEN_W 8'd159
 `define SCREEN_H 7'd120
-`define PLAYER_SIZE 2'd3
+`define PLAYER_SIZE 2'd1
 
 module project
     (
@@ -252,7 +252,7 @@ module animate_control(
             end
 				ERASEtoDRAW: begin
 				    if (!ani_done) state_next <= DRAW;
-					 else state_next <= ERASEtoDRAW;
+					 else state_next <= DRAW;
 				end
             default: state_next = IDLE;
         endcase
@@ -297,20 +297,50 @@ module datapath(
     always@(posedge clk) begin
         if (!resetn) begin
             // TODO: clear the screen
-        end else if (ani_state == LEVEL) begin
+        end
+        else if (ani_state == LEVEL) begin
             // TODO: draw the level
             drawEn <= 1;
 				colour <= 3'b111;
 				if (counter == 0) begin
+					x <= 8'd80;
+					y <= 7'd100;
+				end
+				else if (counter < 28'd9) begin
+				//else if (counter < (`PLAYER_SIZE * `PLAYER_SIZE)) begin
+					if (x < 8'd80 + 8'd3) begin
+						if (y < 7'd100 + 7'd3) begin
+							y <= y + 7'd1;
+						end
+						else begin
+							y <= 7'd100;
+							x <= x + 8'd1;
+						end
+					end
+				end
+				counter <= counter + 27'd1;
+				
+            // when finished drawing, set ani_done to 1
+				if (counter == 28'd10) begin
+					ani_done <= 1;
+				end
+        end
+        else if (ani_state == DRAW) begin
+            // TODO: draw the screen
+            drawEn <= 1;
+            colour = 3'b111;
+				if (counter == 0) begin
 					x <= playerX;
 					y <= playerY;
-				end else if (counter < 28'd100) begin
-					if (y <= playerY + `PLAYER_SIZE - 1) begin
-						if (x < playerX + `PLAYER_SIZE - 1) begin
-							x <= x + 1;
-						end else if (y < playerY + `PLAYER_SIZE - 1) begin
-							x <= playerX;
+				end
+				else if (counter < `PLAYER_SIZE * `PLAYER_SIZE) begin
+					if (x < playerX +`PLAYER_SIZE) begin
+						if (y < playerY + `PLAYER_SIZE) begin
 							y <= y + 1;
+						end
+						else begin
+							y <= playerY;
+							x <= x + 1;
 						end
 					end
 				end
@@ -318,45 +348,25 @@ module datapath(
 				
             // when finished drawing, set ani_done to 1
 				if (counter == `PLAYER_SIZE * `PLAYER_SIZE) begin
-					ani_done <= 1'b1;
+					ani_done <= 1;
 				end
-        end else if (ani_state == ERASE) begin
-            // TODO: draw the level
+        end
+        else if (ani_state == ERASE) begin
+            // TODO: erase old screen
             drawEn <= 1;
 				colour <= 3'b000;
 				if (counter == 0) begin
-					x <= 0;
-					y <= 0;
-				end else if (counter < 28'd20000) begin
-					if (y <= `SCREEN_H - 1) begin
-						if (x < `SCREEN_W - 1) begin
-							x <= x + 1;
-						end else if (y < `SCREEN_H - 1) begin
-							x <= 0;
-							y <= y + 1;
-						end
-					end
-				end
-				counter <= counter + 1;
-				
-            // when finished drawing, set ani_done to 1
-				if (counter == `SCREEN_W * `SCREEN_H) begin
-					ani_done <= 1'b1;
-				end
-        end else if (ani_state == DRAW) begin
-            // TODO: draw the level
-            drawEn <= 1;
-				colour <= 3'b111;
-				if (counter == 0) begin
 					x <= playerX;
 					y <= playerY;
-				end else if (counter < 28'd100) begin
-					if (y <= playerY + `PLAYER_SIZE - 1) begin
-						if (x < playerX + `PLAYER_SIZE - 1) begin
-							x <= x + 1;
-						end else if (y < playerY + `PLAYER_SIZE - 1) begin
-							x <= playerX;
+				end
+				else if (counter < `PLAYER_SIZE * `PLAYER_SIZE) begin
+					if (x < playerX +`PLAYER_SIZE) begin
+						if (y < playerY + `PLAYER_SIZE) begin
 							y <= y + 1;
+						end
+						else begin
+							y <= playerY;
+							x <= x + 1;
 						end
 					end
 				end
@@ -364,12 +374,12 @@ module datapath(
 				
             // when finished drawing, set ani_done to 1
 				if (counter == `PLAYER_SIZE * `PLAYER_SIZE) begin
-					ani_done <= 1'b1;
+					ani_done <= 1;
 				end
-        end else begin
+        end
+        else begin
             drawEn <= 0;
             ani_done <= 0;
-				counter <= 0;
         end
     end
 endmodule

@@ -78,7 +78,7 @@ module enemy_control(
     input resetn,
     input clk,
     output reg player_hit, // player collision
-	 output reg move,
+     output reg move,
     output reg [7:0] enemyX, // coordinates for the top left pixel of the enemy
     output reg [6:0] enemyY
     );
@@ -129,10 +129,10 @@ module enemy_control(
                     end
                 end
                 counter <= 0;
-					 move <= 1;
+                     move <= 1;
             end else begin
                 counter <= counter + 1;
-					 move <= 0;
+                     move <= 0;
             end
             
             // collision with player

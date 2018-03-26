@@ -1,6 +1,6 @@
 `define SCREEN_W 8'd160
 `define SCREEN_H 7'd120
-`define PLAYER_SIZE 2'd3
+`define PLAYER_WIDTH 2'd3
 
 module player_control(
     input left,
@@ -45,7 +45,7 @@ module player_control(
             end
             else if (right) begin
                 if (counter == RATE_DIV) begin
-                    if ((playerX + `PLAYER_SIZE - 1) < `SCREEN_W)
+                    if ((playerX + `PLAYER_WIDTH - 1) < `SCREEN_W)
                         playerX <= playerX + 1;
                     move <= 1;
                     counter <= 0;
@@ -64,7 +64,7 @@ module player_control(
 endmodule
 
 module enemy_control(
-    input [2:0] size, // height of square enemy in pixels
+    input [2:0] width, // width of square enemy in pixels
     input [7:0] start_x,
     input [6:0] start_y,
     input [2:0] d_x, // slope d_y/d_x
@@ -73,22 +73,28 @@ module enemy_control(
     input upwards,
     input [7:0] playerX,
     input [6:0] playerY,
+	input output_pos,
     input load_level,
     input play,
     input resetn,
     input clk,
     output reg player_hit, // player collision
-     output reg move,
+    output reg move,
     output reg [7:0] enemyX, // coordinates for the top left pixel of the enemy
-    output reg [6:0] enemyY
+    output reg [6:0] enemyY,
+	output reg [2:0] enemy_width
     );
     
     localparam RATE_DIV = 28'd1000000; // lower to move faster
     reg [27:0] counter;
+	reg [7:0] enemy_x;
+	reg [6:0] enemy_y;
     reg left, up;
     
     always@(posedge clk) begin
         if (!resetn || load_level) begin
+			enemy_x <= start_x;
+            enemy_y <= start_y;
             enemyX <= start_x;
             enemyY <= start_y;
             counter <= 0;
@@ -99,45 +105,51 @@ module enemy_control(
         if (play) begin
             if (counter == RATE_DIV) begin
                 if (left) begin
-                    if (enemyX - d_x <= 0) begin // hit left edge, change directions
-                        enemyX <= 0;
+                    if (enemy_x - d_x <= 0) begin // hit left edge, change directions
+                        enemy_x <= 0;
                         left <= 0;
                     end else begin
-                        enemyX <= enemyX - d_x;
+                        enemy_x <= enemy_x - d_x;
                     end
                 end else begin
-                    if ((enemyX + size - 1) + d_x >= `SCREEN_W) begin // hit right edge
-                        enemyX <= `SCREEN_W - size + 1;
+                    if ((enemy_x + width - 1) + d_x >= `SCREEN_W) begin // hit right edge
+                        enemy_x <= `SCREEN_W - width + 1;
                         left <= 1;
                     end else begin
-                        enemyX <= enemyX + d_x;
+                        enemy_x <= enemy_x + d_x;
                     end
                 end
                 if (up) begin
-                    if (enemyY - d_y <= 0) begin // hit top edge
-                        enemyY <= 0;
+                    if (enemy_y - d_y <= 0) begin // hit top edge
+                        enemy_y <= 0;
                         up <= 0;
                     end else begin
-                        enemyY <= enemyY - d_y;
+                        enemy_y <= enemy_y - d_y;
                     end
                 end else begin
-                    if ((enemyY + size - 1) + d_y >= `SCREEN_H) begin // hit bottom edge
-                        enemyY <= `SCREEN_H - size + 1;
+                    if ((enemy_y + width - 1) + d_y >= `SCREEN_H) begin // hit bottom edge
+                        enemy_y <= `SCREEN_H - width + 1;
                         up <= 1;
                     end else begin
-                        enemyY <= enemyY + d_y;
+                        enemy_y <= enemy_y + d_y;
                     end
                 end
                 counter <= 0;
-                     move <= 1;
+                    move <= 1;
             end else begin
                 counter <= counter + 1;
-                     move <= 0;
+                    move <= 0;
             end
+			
+			// only output position when output_pos
+			if (output_pos) begin
+				enemyX <= enemy_x;
+				enemyY <= enemy_y
+			end
             
             // collision with player
-            if ((playerX <= (enemyX + size - 1) && enemyX <= (playerX + `PLAYER_SIZE - 1))
-                && (playerY <= (enemyY + size - 1) && enemyY <= (playerY + `PLAYER_SIZE - 1))) begin
+            if ((playerX <= (enemyX + width - 1) && enemyX <= (playerX + `PLAYER_WIDTH - 1))
+                && (playerY <= (enemyY + width - 1) && enemyY <= (playerY + `PLAYER_WIDTH - 1))) begin
                 player_hit <= 1;
             end
         end

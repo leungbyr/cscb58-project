@@ -10,11 +10,13 @@
 
 `define SCREEN_W 8'd159
 `define SCREEN_H 7'd120
-`define PLAYER_SIZE 2'd3
+`define PLAYER_WIDTH 2'd3
+`define PLAYER_SIZE `PLAYER_WIDTH * `PLAYER_WIDTH
+`define PLAYER_COLOR 3'b111
 
 module project
     (
-        CLOCK2_50,                       //  On Board 50 MHz
+        CLOCK_50,                       //  On Board 50 MHz
         // Your inputs and outputs here
         KEY,
         SW,
@@ -30,7 +32,7 @@ module project
         VGA_B                           //  VGA Blue[9:0]
     );
 
-    input           CLOCK2_50;               //  50 MHz
+    input           CLOCK_50;               //  50 MHz
     input   [9:0]   SW;
     input   [3:0]   KEY;
     output [17:0] LEDR;
@@ -59,7 +61,7 @@ module project
     // image file (.MIF) for the controller.
     vga_adapter VGA(
             .resetn(resetn),
-            .clock(CLOCK2_50),
+            .clock(CLOCK_50),
             .colour(colour),
             .x(x),
             .y(y),
@@ -86,40 +88,40 @@ module project
     
     wire load_level, level_pause, play; // game states
     wire [7:0] playerX, enemyX;
-     wire [6:0] playerY, enemyY;
+    wire [6:0] playerY, enemyY;
     wire [2:0] ani_state;
     wire player_move, animate_done, player_hit, enemy_move;
-     wire [27:0] count;
-     wire [2:0] enemy_size;
-     assign enemy_size = 3'd7;
+    wire [27:0] count;
+    wire [2:0] enemy_width, enemy_out;
     
     // DEBUGGING
     assign LEDR[0] = load_level;
     assign LEDR[1] = level_pause;
     assign LEDR[2] = play;
-     assign LEDR[14:11] = count;
+    assign LEDR[14:11] = count;
     
     datapath d0(
         .playerX(playerX),
         .playerY(playerY),
         .enemyX(enemyX),
         .enemyY(enemyY),
-          .enemy_size(enemy_size),
+        .enemy_width(enemy_width),
+		.enemy_count(enemy_count)
         .ani_state(ani_state),
         .resetn(resetn),
-        .clk(CLOCK2_50),
+        .clk(CLOCK_50),
         .ani_done(animate_done),
+		.enemy_out(enemy_out),
         .x(x),
         .y(y),
         .colour(colour),
         .drawEn(writeEn),
-          .counter(count)
     );
     
     control c0(
         .go(go),
         .resetn(resetn),
-        .clk(CLOCK2_50),
+        .clk(CLOCK_50),
         .load_level(load_level),
         .level_pause(level_pause),
         .play(play)
@@ -130,7 +132,7 @@ module project
         .right(right),
         .play(play),
         .resetn(resetn),
-        .clk(CLOCK2_50),
+        .clk(CLOCK_50),
         .move(player_move),
         .playerX(playerX),
         .playerY(playerY),
@@ -139,30 +141,57 @@ module project
     animate_control ac0(
         .load_level(load_level),
         .player_move(player_move),
-          .enemy_move(enemy_move),
+        .enemy_move(enemy_move),
         .ani_done(animate_done),
         .resetn(resetn),
-        .clk(CLOCK2_50),
+        .clk(CLOCK_50),
         .ani_state(ani_state)
     );
     
     // test 3x3 enemy spawned at (80, 60) moving at 45 degree angle down and to the right
     // I didn't actually try to draw the enemy yet, only calculated the x and y
     enemy_control ec0(
-        .size(enemy_size),
+        .size(3'd7),
         .start_x(8'd80),
         .start_y(7'd60),
-        .d_x(1),
-        .d_y(1),
-        .leftwards(0),
-        .upwards(0),
-        .play(play),
+        .d_x(3'd1),
+		.d_y(3'd1),
+		.leftwards(1'b0),
+		.upwards(1'b0),
+		.playerX(playerX),	
+		.playerY(playerY),
+		.output_pos(enemy_out == 3'd0)
+		.load_level(load_level),
+		.play(play),
         .resetn(resetn),
-        .clk(CLOCK2_50),
-          .player_hit(player_hit),
-          .move(enemy_move),
+        .clk(CLOCK_50),
+        .player_hit(player_hit),
+		.move(enemy_move),
         .enemyX(enemyX),
-        .enemyY(enemyY)
+        .enemyY(enemyY),
+		.enemy_width(enemy_width)
+    );
+	
+	enemy_control ec1(
+        .size(3'd7),
+        .start_x(8'd80),
+        .start_y(7'd60),
+        .d_x(3'd1),
+		.d_y(3'd1),
+		.leftwards(1'b0),
+		.upwards(1'b0),
+		.playerX(playerX),	
+		.playerY(playerY),	
+		.output_pos(enemy_out == 3'd1)
+		.load_level(load_level),
+		.play(play),
+        .resetn(resetn),
+        .clk(CLOCK_50),
+        .player_hit(player_hit),
+		.move(enemy_move),
+        .enemyX(enemyX),
+        .enemyY(enemyY),
+		.enemy_width(enemy_width)
     );
 endmodule
 
@@ -256,10 +285,10 @@ module animate_control(
                 if (ani_done) state_next <= IDLE;
                 else state_next <= LEVEL;
             end
-                ERASEtoDRAW: begin
-                    if (!ani_done) state_next <= DRAW;
-                     else state_next <= ERASEtoDRAW;
-                end
+			ERASEtoDRAW: begin
+				if (!ani_done) state_next <= DRAW;
+				 else state_next <= ERASEtoDRAW;
+			end
             default: state_next = IDLE;
         endcase
     end // state_table
@@ -280,7 +309,9 @@ module datapath(
     input [6:0] playerY,
     input [7:0] enemyX,
     input [6:0] enemyY,
-     input [2:0] enemy_size,
+    input [2:0] enemy_width,
+	input [2:0] enemy_count,
+	input [2:0] enemy_out,
     input [2:0] ani_state,
     input resetn,
     input clk,
@@ -289,108 +320,125 @@ module datapath(
     output reg [6:0] y,
     output reg [2:0] colour,
     output reg drawEn,
-     output reg [27:0] counter
     );
 
     localparam IDLE = 3'b000, DRAW = 3'b001, LEVEL = 3'b010, ERASE = 3'b011; // draw states
-     //reg [27:0] counter;
+    reg [27:0] counter;
     
     initial begin
         colour <= 3'b111;
         ani_done <= 0;
-          counter <= 0;
+        counter <= 0;
+		enemy_out <= 0;
     end
     
     always@(posedge clk) begin
         if (!resetn) begin
             // TODO: clear the screen
         end else if (ani_state == LEVEL) begin
-            // TODO: draw the level
             drawEn <= 1;
-                colour <= 3'b111;
-                if (counter == 0) begin
-                    x <= playerX;
-                    y <= playerY;
-                end else if (counter < 28'd100) begin
-                    if (y <= playerY + `PLAYER_SIZE - 1) begin
-                        if (x < playerX + `PLAYER_SIZE - 1) begin
-                            x <= x + 1;
-                        end else if (y < playerY + `PLAYER_SIZE - 1) begin
-                            x <= playerX;
-                            y <= y + 1;
-                        end
-                    end
-                end
-                counter <= counter + 1;
-                
-            // when finished drawing, set ani_done to 1
-                if (counter == `PLAYER_SIZE * `PLAYER_SIZE) begin
-                    ani_done <= 1'b1;
-                end
+			colour <= `PLAYER_COLOR;
+			if (counter == 0) begin
+				x <= playerX;
+				y <= playerY;
+			end else if (counter < `PLAYER_SIZE) begin // draw player
+				if (y <= playerY + `PLAYER_WIDTH - 1) begin
+					if (x < playerX + `PLAYER_WIDTH - 1) begin
+						x <= x + 1;
+					end else if (y < playerY + `PLAYER_WIDTH - 1) begin
+						x <= playerX;
+						y <= y + 1;
+					end
+				end
+			end else if (counter <= `PLAYER_SIZE + (enemy_width * enemy_width)) begin 
+				// draw enemy
+				if (counter == `PLAYER_SIZE) begin
+					x <= enemyX;
+					y <= enemyY;
+				end else if (y <= enemyY + enemy_width - 1) begin
+					if (x < enemyX + enemy_width - 1) begin
+						x <= x + 1;
+					end else if (y < enemyY + enemy_width - 1) begin
+						x <= enemyX;
+						y <= y + 1;
+					end
+				end else if (enemy_out < enemy_count - 1)
+					// reset counter and load next enemy
+					enemy_out <= enemy_out + 1;
+					counter <= `PLAYER_SIZE;
+				end
+			end
+			counter <= counter + 1;
+			
+			// done drawing
+			if (counter > `PLAYER_SIZE + (enemy_width * enemy_width)) begin
+				ani_done <= 1'b1;
+				enemy_out <= 0;
+			end
         end else if (ani_state == ERASE) begin
             // TODO: draw the level
             drawEn <= 1;
-                colour <= 3'b000;
-                if (counter == 0) begin
-                    x <= 0;
-                    y <= 0;
-                end else if (counter < 28'd20000) begin
-                    if (y <= `SCREEN_H + 1) begin
-                        if (x < `SCREEN_W) begin
-                            x <= x + 1;
-                        end else if (y < `SCREEN_H + 1) begin
-                            x <= 0;
-                            y <= y + 1;
-                        end
-                    end
-                end
-                counter <= counter + 1;
-                
-            // when finished drawing, set ani_done to 1
-                if (counter == `SCREEN_W * (`SCREEN_H + 1)) begin
-                    ani_done <= 1'b1;
-                end
+			colour <= 3'b000;
+			if (counter == 0) begin
+				x <= 0;
+				y <= 0;
+			end else if (counter < 28'd20000) begin
+				if (y <= `SCREEN_H + 1) begin
+					if (x < `SCREEN_W) begin
+						x <= x + 1;
+					end else if (y < `SCREEN_H + 1) begin
+						x <= 0;
+						y <= y + 1;
+					end
+				end
+			end
+			counter <= counter + 1;
+			
+			// when finished drawing, set ani_done to 1
+			if (counter == `SCREEN_W * (`SCREEN_H + 1)) begin
+				ani_done <= 1'b1;
+			end
         end else if (ani_state == DRAW) begin
             // TODO: draw the level
             drawEn <= 1;
-                colour <= 3'b111;
-                if (counter == 0) begin
-                    x <= playerX;
-                    y <= playerY;
-                end else if (counter < 28'd100) begin
-                    if (y <= playerY + `PLAYER_SIZE - 1) begin
-                        if (x < playerX + `PLAYER_SIZE - 1) begin
-                            x <= x + 1;
-                        end else if (y < playerY + `PLAYER_SIZE - 1) begin
-                            x <= playerX;
-                            y <= y + 1;
-                        end
-                    end
-                end else if (counter <= 28'd200) begin    // drawing the enemy now
-                    if (counter == 28'd100) begin
-                        x <= enemyX;
-                        y <= enemyY;
-                    end else if (y <= enemyY + enemy_size - 1) begin
-                        if (x < enemyX + enemy_size - 1) begin
-                            x <= x + 1;
-                        end else if (y < enemyY + enemy_size - 1) begin
-                            x <= enemyX;
-                            y <= y + 1;
-                        end
-                    end
-                end else if (counter <= 28'd204) begin // draw the phallus
-                    if (counter == 28'd202) begin
-                        x <= playerX + 1;
-                        y <= playerY - 1;
-                    end
-                end
-                counter <= counter + 1;
-                
-            // when finished drawing, set ani_done to 1
-                // TODO: un-hardcode
-                if (counter == (`PLAYER_SIZE * `PLAYER_SIZE) + 204) begin
-                    ani_done <= 1'b1;
-                end
+			colour <= 3'b111;
+			if (counter == 0) begin
+				x <= playerX;
+				y <= playerY;
+			end else if (counter < 28'd100) begin
+				if (y <= playerY + `PLAYER_WIDTH - 1) begin
+					if (x < playerX + `PLAYER_WIDTH - 1) begin
+						x <= x + 1;
+					end else if (y < playerY + `PLAYER_WIDTH - 1) begin
+						x <= playerX;
+						y <= y + 1;
+					end
+				end
+			end else if (counter <= 28'd200) begin    // drawing the enemy now
+				if (counter == 28'd100) begin
+					x <= enemyX;
+					y <= enemyY;
+				end else if (y <= enemyY + enemy_width - 1) begin
+					if (x < enemyX + enemy_width - 1) begin
+						x <= x + 1;
+					end else if (y < enemyY + enemy_width - 1) begin
+						x <= enemyX;
+						y <= y + 1;
+					end
+				end
+			end else if (counter <= 28'd204) begin // draw the phallus
+				if (counter == 28'd202) begin
+					x <= playerX + 1;
+					y <= playerY - 1;
+				end
+			end
+			counter <= counter + 1;
+			
+			// when finished drawing, set ani_done to 1
+			// TODO: un-hardcode
+			if (counter == (`PLAYER_WIDTH * `PLAYER_WIDTH) + 204) begin
+				ani_done <= 1'b1;
+			end
         end else begin
             drawEn <= 0;
             ani_done <= 0;

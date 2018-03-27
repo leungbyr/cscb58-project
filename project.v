@@ -83,6 +83,7 @@ module project
     // for the VGA controller, in addition to any other functionality your design may require.
     
     assign go = ~KEY[0];
+	 assign new = SW[8];
     assign left = ~KEY[3];
     assign right = ~KEY[2];
     
@@ -90,7 +91,8 @@ module project
     wire [7:0] playerX, enemyX, enemyX2;
     wire [6:0] playerY, enemyY, enemyY2;
     wire [2:0] ani_state;
-    wire player_move, animate_done, player_hit, enemy_move, enemy_move2;
+    wire player_move, animate_done, player_hit, hit, enemy_move, enemy_move2;
+	 wire [1:0] new_hit;
     wire [27:0] count;
     wire [2:0] enemy_width, enemy_width2, enemy_out;
     
@@ -98,6 +100,7 @@ module project
     assign LEDR[0] = load_level;
     assign LEDR[1] = level_pause;
     assign LEDR[2] = play;
+	 assign LEDR[3] = game_over;
     assign LEDR[14:11] = count;
     
     datapath d0(
@@ -119,6 +122,9 @@ module project
     );
     
     control c0(
+		  .new_hit(new_hit),
+		  .playerhit(hit),
+		  .new(new),
         .go(go),
         .resetn(resetn),
         .clk(CLOCK_50),
@@ -140,6 +146,7 @@ module project
     
     animate_control ac0(
         .load_level(load_level),
+		  .game_over(game_over),
         .player_move(player_move),
         .enemy_move(enemy_move),
         .ani_done(animate_done),
@@ -151,6 +158,7 @@ module project
     // test 3x3 enemy spawned at (80, 60) moving at 45 degree angle down and to the right
     // I didn't actually try to draw the enemy yet, only calculated the x and y
     enemy_control ec0(
+		  .new_hit(new_hit),
         .size(3'd7),
         .start_x(8'd80),
         .start_y(7'd60),
@@ -173,6 +181,7 @@ module project
     );
 	
 	enemy_control ec1(
+	     .new_hit(new_hit),
         .size(3'd7),
         .start_x(8'd80),
         .start_y(7'd60),
@@ -196,10 +205,10 @@ module project
 endmodule
 
 // controls game states
-module control(go, resetn, clk, load_level, level_pause, play);
-    input go, resetn, clk;
+module control(go, new, new_hit, playerhit, resetn, clk, load_level, level_pause, play);
+    input go, resetn, clk, new, playerhit;
     output load_level, level_pause, play;
-    
+    output reg new_hit;
     reg [2:0] state, state_next;
     localparam LEVEL_SELECT = 3'b000, LOAD_LEVEL = 3'b001, LEVEL_PAUSE = 3'b010,    // states
             PLAY_START = 3'b011, PLAY = 3'b100, GAME_OVER = 3'b101, PAUSING = 3'b110;
@@ -218,18 +227,26 @@ module control(go, resetn, clk, load_level, level_pause, play);
             LEVEL_PAUSE: begin
                     if (go) state_next <= PLAY_START;
                     else state_next <= LEVEL_PAUSE;
-                end
+            end
             PLAY_START: begin
                     if (!go) state_next <= PLAY;
                     else state_next <= PLAY_START;
-                end
+            end
             PLAY: begin
                     if (go) state_next <= PAUSING;
+						  if (playerhit) state_next <= GAME_OVER;
                     else state_next <= PLAY;
             end
+				GAME_OVER: begin
+						 if (new) begin
+						     state_next <= PLAY;
+						 end
+						 else state_next <= GAME_OVER;
+						 new_hit = 1;
+				end
             PAUSING: begin
-                if (!go) state_next <= LEVEL_PAUSE;
-                else state_next <= PAUSING;
+                   if (!go) state_next <= LEVEL_PAUSE;
+                   else state_next <= PAUSING;
             end
             default: state_next = LEVEL_SELECT;
         endcase
@@ -248,11 +265,13 @@ module control(go, resetn, clk, load_level, level_pause, play);
     assign load_level = (state == LOAD_LEVEL);
     assign level_pause = (state == LEVEL_PAUSE);
     assign play = (state == PLAY);
+	 assign game_over = (state == GAME_OVER);
 endmodule
 
 // controls what is being drawn
 module animate_control(
     input load_level,
+	 input game_over,
     input player_move,
     input enemy_move,
     input ani_done,
@@ -285,10 +304,10 @@ module animate_control(
                 if (ani_done) state_next <= IDLE;
                 else state_next <= LEVEL;
             end
-			ERASEtoDRAW: begin
-				if (!ani_done) state_next <= DRAW;
-				 else state_next <= ERASEtoDRAW;
-			end
+				ERASEtoDRAW: begin
+				    if (!ani_done) state_next <= DRAW;
+				    else state_next <= ERASEtoDRAW;
+			   end
             default: state_next = IDLE;
         endcase
     end // state_table
@@ -446,7 +465,7 @@ module datapath(
         end else begin
             drawEn <= 0;
             ani_done <= 0;
-                counter <= 0;
+            counter <= 0;
         end
     end
 endmodule

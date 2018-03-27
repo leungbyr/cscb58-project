@@ -64,25 +64,20 @@ module player_control(
 endmodule
 
 module enemy_control(
-    input new_hit,
     input [2:0] width, // width of square enemy in pixels
     input [7:0] start_x,
     input [6:0] start_y,
-    // added input size so ec0/1 works
-    input [2:0] size,
     input [2:0] d_x, // slope d_y/d_x
     input [2:0] d_y,
     input leftwards, // direction of enemy when spawned
     input upwards,
     input [7:0] playerX,
     input [6:0] playerY,
-	 input output_pos,
     input load_level,
     input play,
     input resetn,
     input clk,
-    output reg player_hit, // player collision
-    output reg hit,
+    output player_hit, // player collision
     output reg move,
     output reg [7:0] enemyX, // coordinates for the top left pixel of the enemy
     output reg [6:0] enemyY,
@@ -91,75 +86,114 @@ module enemy_control(
     
     localparam RATE_DIV = 28'd1000000; // lower to move faster
     reg [27:0] counter;
-    reg [7:0] enemy_x;
-    reg [6:0] enemy_y;
     reg left, up;
     
     always@(posedge clk) begin
-	if (new_hit == 1) begin
-	    player_hit <= 0;
-	end
         if (!resetn || load_level) begin
-	    enemy_x <= start_x;
-            enemy_y <= start_y;
             enemyX <= start_x;
             enemyY <= start_y;
+            enemy_width <= width;
             counter <= 0;
             left <= leftwards;
             up <= upwards;
-            player_hit <= 0;
+            move <= 0;
         end
         if (play) begin
             if (counter == RATE_DIV) begin
                 if (left) begin
-                    if (enemy_x - d_x <= 0) begin // hit left edge, change directions
-                        enemy_x <= 0;
+                    if (enemyX - d_x <= 0) begin // hit left edge, change directions
+                        enemyX <= 0;
                         left <= 0;
                     end else begin
-                        enemy_x <= enemy_x - d_x;
+                        enemyX <= enemyX - d_x;
                     end
                 end else begin
-                    if ((enemy_x + width - 1) + d_x >= `SCREEN_W) begin // hit right edge
-                        enemy_x <= `SCREEN_W - width + 1;
+                    if ((enemyX + width - 1) + d_x >= `SCREEN_W) begin // hit right edge
+                        enemyX <= `SCREEN_W - width + 1;
                         left <= 1;
                     end else begin
-                        enemy_x <= enemy_x + d_x;
+                        enemyX <= enemyX + d_x;
                     end
                 end
                 if (up) begin
-                    if (enemy_y - d_y <= 0) begin // hit top edge
-                        enemy_y <= 0;
+                    if (enemyY - d_y <= 0) begin // hit top edge
+                        enemyY <= 0;
                         up <= 0;
                     end else begin
-                        enemy_y <= enemy_y - d_y;
+                        enemyY <= enemyY - d_y;
                     end
                 end else begin
-                    if ((enemy_y + width - 1) + d_y >= `SCREEN_H) begin // hit bottom edge
-                        enemy_y <= `SCREEN_H - width + 1;
+                    if ((enemyY + width - 1) + d_y >= `SCREEN_H) begin // hit bottom edge
+                        enemyY <= `SCREEN_H - width + 1;
                         up <= 1;
                     end else begin
-                        enemy_y <= enemy_y + d_y;
+                        enemyY <= enemyY + d_y;
                     end
                 end
                 counter <= 0;
-                    move <= 1;
+                move <= 1;
             end else begin
                 counter <= counter + 1;
-                    move <= 0;
-            end
-			
-			// only output position when output_pos
-			if (output_pos) begin
-				enemyX <= enemy_x;
-				enemyY <= enemy_y;
-			end
-            
-            // collision with player
-            if ((playerX <= (enemyX + width - 1) && enemyX <= (playerX + `PLAYER_WIDTH - 1))
-                && (playerY <= (enemyY + width - 1) && enemyY <= (playerY + `PLAYER_WIDTH - 1))) begin
-                player_hit <= 1;
-		hit <= 1;
+                move <= 0;
             end
         end
     end
+    
+    // collision with player
+    assign player_hit = (playerX <= (enemyX + width - 1) && enemyX <= (playerX + `PLAYER_WIDTH - 1))
+        && (playerY <= (enemyY + width - 1) && enemyY <= (playerY + `PLAYER_WIDTH - 1));
+endmodule
+
+module bullet_control(
+    input fire,
+    input [7:0] playerX,
+    input [6:0] playerY,
+    input [7:0] enemyX,
+    input [6:0] enemyY,
+    input [2:0] enemy_width,
+    input play,
+    input resetn,
+    input clk,
+    output enemy_hit,
+    output reg move,
+    output reg [7:0] bulletX,
+    output reg [6:0] bulletY
+    );
+
+    localparam RATE_DIV = 28'd1000000; // lower to move faster
+    reg [27:0] counter;
+    reg fired;
+    
+    initial fired <= 0;
+    
+    always@(posedge clk) begin
+        move <= 0;
+        if (!resetn) begin
+            fired <= 0;
+            bulletX <= playerX + 1;
+            bulletY <= playerY - 1;
+        end
+        if (play) begin
+            if (fire) begin
+                bulletX <= playerX + 1;
+                bulletY <= playerY - 1;
+                fired <= 1;
+                counter <= 0;
+            end else if (bulletY <= 0) begin
+                fired <= 0;
+            end else if (fired) begin
+                if (counter == RATE_DIV) begin
+                    bulletY <= bulletY - 1;
+                    counter <= 0;
+                    move <= 1;
+                end else begin
+                    counter <= counter + 1;
+                end
+            end
+        end
+    end
+    
+    // collision with enemy
+    assign enemy_hit = (bulletX <= (enemyX + enemy_width - 1) && enemyX <= bulletX)
+        && (bulletY <= (enemyY + enemy_width - 1) && enemyY <= bulletY);
 endmodule

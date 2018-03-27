@@ -6,6 +6,7 @@ module player_control(
     input left,
     input right,
     input play,
+	 input load_level,
     input resetn,
     input clk,
     output reg move,
@@ -23,7 +24,7 @@ module player_control(
     end
     
     always@(posedge clk) begin
-        if (!resetn) begin
+        if (!resetn || load_level) begin
             counter <= 0;
             move <= 0;
             playerX <= START_X;
@@ -152,48 +153,67 @@ module bullet_control(
     input [6:0] enemyY,
     input [2:0] enemy_width,
     input play,
+	 input load_level,
     input resetn,
     input clk,
     output enemy_hit,
     output reg move,
     output reg [7:0] bulletX,
-    output reg [6:0] bulletY
+    output reg [6:0] bulletY,
+	 output reg [2:0] enemy_color
     );
 
-    localparam RATE_DIV = 28'd1000000; // lower to move faster
+    localparam RATE_DIV = 28'd500000; // lower to move faster
     reg [27:0] counter;
     reg fired;
     
-    initial fired <= 0;
+    initial begin
+	     fired <= 0;
+	     enemy_color <= 3'b111;
+		  
+	 end
     
     always@(posedge clk) begin
         move <= 0;
-        if (!resetn) begin
+        if (!resetn || load_level) begin
             fired <= 0;
-            bulletX <= playerX + 1;
-            bulletY <= playerY - 1;
+            enemy_color <= 3'b111;
+				bulletX <= playerX + 1;
+            bulletY <= playerY;
         end
         if (play) begin
-            if (fire) begin
-                bulletX <= playerX + 1;
-                bulletY <= playerY - 1;
+            if (fire && !fired) begin
                 fired <= 1;
+					 bulletX <= playerX + 1;
+                bulletY <= playerY;
                 counter <= 0;
-            end else if (bulletY <= 0) begin
-                fired <= 0;
             end else if (fired) begin
-                if (counter == RATE_DIV) begin
+				    if (bulletY <= 0) begin
+					     fired <= 0;
+                end else if (counter == RATE_DIV) begin
                     bulletY <= bulletY - 1;
                     counter <= 0;
                     move <= 1;
                 end else begin
                     counter <= counter + 1;
                 end
-            end
+            end else if (!fired) begin
+				    bulletX <= playerX + 1;
+                bulletY <= playerY;
+				end
         end
+		  
+		  if (enemy_hit) begin
+		      fired <= 0;
+				bulletX <= playerX + 1;
+            bulletY <= playerY;
+		      if (enemy_color > 0)
+                enemy_color <= enemy_color - 1;
+		  end
     end
     
     // collision with enemy
     assign enemy_hit = (bulletX <= (enemyX + enemy_width - 1) && enemyX <= bulletX)
         && (bulletY <= (enemyY + enemy_width - 1) && enemyY <= bulletY);
 endmodule
+

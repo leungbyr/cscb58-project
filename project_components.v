@@ -67,13 +67,15 @@ module enemy_control(
     input [2:0] width, // width of square enemy in pixels
     input [7:0] start_x,
     input [6:0] start_y,
+	 // added input size so ec0/1 works
+	 input [2:0] size,
     input [2:0] d_x, // slope d_y/d_x
     input [2:0] d_y,
     input leftwards, // direction of enemy when spawned
     input upwards,
     input [7:0] playerX,
     input [6:0] playerY,
-	input output_pos,
+	 input output_pos,
     input load_level,
     input play,
     input resetn,
@@ -82,13 +84,13 @@ module enemy_control(
     output reg move,
     output reg [7:0] enemyX, // coordinates for the top left pixel of the enemy
     output reg [6:0] enemyY,
-	output reg [2:0] enemy_width
+	 output reg [2:0] enemy_width
     );
     
     localparam RATE_DIV = 28'd1000000; // lower to move faster
     reg [27:0] counter;
-	reg [7:0] enemy_x;
-	reg [6:0] enemy_y;
+	 reg [7:0] enemy_x;
+	 reg [6:0] enemy_y;
     reg left, up;
     
     always@(posedge clk) begin
@@ -144,7 +146,7 @@ module enemy_control(
 			// only output position when output_pos
 			if (output_pos) begin
 				enemyX <= enemy_x;
-				enemyY <= enemy_y
+				enemyY <= enemy_y;
 			end
             
             // collision with player

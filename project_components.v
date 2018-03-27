@@ -78,7 +78,7 @@ module enemy_control(
     input play,
     input resetn,
     input clk,
-    output reg player_hit, // player collision
+    output player_hit, // player collision
     output reg move,
     output reg [7:0] enemyX, // coordinates for the top left pixel of the enemy
     output reg [6:0] enemyY,
@@ -95,12 +95,11 @@ module enemy_control(
         if (!resetn || load_level) begin
 			enemy_x <= start_x;
             enemy_y <= start_y;
-            enemyX <= start_x;
-            enemyY <= start_y;
+			enemy_width <= width;
             counter <= 0;
             left <= leftwards;
             up <= upwards;
-            player_hit <= 0;
+			move <= 0;
         end
         if (play) begin
             if (counter == RATE_DIV) begin
@@ -135,23 +134,22 @@ module enemy_control(
                     end
                 end
                 counter <= 0;
-                    move <= 1;
+                move <= 1;
             end else begin
                 counter <= counter + 1;
-                    move <= 0;
-            end
-			
-			// only output position when output_pos
-			if (output_pos) begin
-				enemyX <= enemy_x;
-				enemyY <= enemy_y
-			end
-            
-            // collision with player
-            if ((playerX <= (enemyX + width - 1) && enemyX <= (playerX + `PLAYER_WIDTH - 1))
-                && (playerY <= (enemyY + width - 1) && enemyY <= (playerY + `PLAYER_WIDTH - 1))) begin
-                player_hit <= 1;
+                move <= 0;
             end
         end
+		
+		// only output position when output_pos
+		if (output_pos) begin
+			enemyX <= enemy_x;
+			enemyY <= enemy_y;
+			enemy_width <= width;
+		end
     end
+	
+	// collision with player
+	assign player_hit = (playerX <= (enemyX + width - 1) && enemyX <= (playerX + `PLAYER_WIDTH - 1))
+		&& (playerY <= (enemyY + width - 1) && enemyY <= (playerY + `PLAYER_WIDTH - 1));
 endmodule

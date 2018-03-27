@@ -95,10 +95,10 @@ module project
     wire [2:0] enemy_width, enemy_out;
     
     // DEBUGGING
-    assign LEDR[0] = load_level;
-    assign LEDR[1] = level_pause;
-    assign LEDR[2] = play;
-    assign LEDR[14:11] = count;
+    //assign LEDR[0] = load_level;
+    //assign LEDR[1] = level_pause;
+    //assign LEDR[2] = play;
+    //assign LEDR[14:11] = count;
     
     datapath d0(
         .playerX(playerX),
@@ -106,7 +106,7 @@ module project
         .enemyX(enemyX),
         .enemyY(enemyY),
         .enemy_width(enemy_width),
-		.enemy_count(enemy_count)
+		.enemy_count(3'd2)
         .ani_state(ani_state),
         .resetn(resetn),
         .clk(CLOCK_50),
@@ -196,8 +196,8 @@ module project
 endmodule
 
 // controls game states
-module control(go, resetn, clk, load_level, level_pause, play);
-    input go, resetn, clk;
+module control(go, player_died, resetn, clk, load_level, level_pause, play);
+    input go, player_died, resetn, clk;
     output load_level, level_pause, play;
     
     reg [2:0] state, state_next;
@@ -216,21 +216,26 @@ module control(go, resetn, clk, load_level, level_pause, play);
                     else state_next <= LOAD_LEVEL;
             end
             LEVEL_PAUSE: begin
-                    if (go) state_next <= PLAY_START;
-                    else state_next <= LEVEL_PAUSE;
-                end
+				if (go) state_next <= PLAY_START;
+				else state_next <= LEVEL_PAUSE;
+			end
             PLAY_START: begin
-                    if (!go) state_next <= PLAY;
-                    else state_next <= PLAY_START;
-                end
+				if (!go) state_next <= PLAY;
+				else state_next <= PLAY_START;
+			end
             PLAY: begin
-                    if (go) state_next <= PAUSING;
-                    else state_next <= PLAY;
-            end
+				if (go) state_next <= PAUSING;
+				else if (player_died) <= GAME_OVER;
+				else state_next <= PLAY;
+			end
             PAUSING: begin
                 if (!go) state_next <= LEVEL_PAUSE;
                 else state_next <= PAUSING;
             end
+			GAME_OVER: begin
+				if (go) state_next <= LOAD_LEVEL;
+				else state_next <= GAME_OVER;
+			end
             default: state_next = LEVEL_SELECT;
         endcase
     end // state_table
@@ -287,7 +292,7 @@ module animate_control(
             end
 			ERASEtoDRAW: begin
 				if (!ani_done) state_next <= DRAW;
-				 else state_next <= ERASEtoDRAW;
+				else state_next <= ERASEtoDRAW;
 			end
             default: state_next = IDLE;
         endcase
@@ -326,7 +331,6 @@ module datapath(
     reg [27:0] counter;
     
     initial begin
-        colour <= 3'b111;
         ani_done <= 0;
         counter <= 0;
 		enemy_out <= 0;
@@ -351,7 +355,7 @@ module datapath(
 					end
 				end
 			end else if (counter <= `PLAYER_SIZE + (enemy_width * enemy_width)) begin 
-				// draw enemy
+				// draw enemies
 				if (counter == `PLAYER_SIZE) begin
 					x <= enemyX;
 					y <= enemyY;
@@ -363,12 +367,15 @@ module datapath(
 						y <= y + 1;
 					end
 				end else if (enemy_out < enemy_count - 1)
-					// reset counter and load next enemy
+					// load next enemy
 					enemy_out <= enemy_out + 1;
-					counter <= `PLAYER_SIZE;
 				end
 			end
-			counter <= counter + 1;
+			
+			if (counter == `PLAYER_SIZE + (enemy_width * enemy_width))
+				counter <= `PLAYER_SIZE;
+			else	
+				counter <= counter + 1;
 			
 			// done drawing
 			if (counter > `PLAYER_SIZE + (enemy_width * enemy_width)) begin
@@ -376,13 +383,12 @@ module datapath(
 				enemy_out <= 0;
 			end
         end else if (ani_state == ERASE) begin
-            // TODO: draw the level
             drawEn <= 1;
 			colour <= 3'b000;
 			if (counter == 0) begin
 				x <= 0;
 				y <= 0;
-			end else if (counter < 28'd20000) begin
+			end else if (counter < `SCREEN_W * (`SCREEN_H + 1)) begin
 				if (y <= `SCREEN_H + 1) begin
 					if (x < `SCREEN_W) begin
 						x <= x + 1;
@@ -442,7 +448,7 @@ module datapath(
         end else begin
             drawEn <= 0;
             ani_done <= 0;
-                counter <= 0;
+            counter <= 0;
         end
     end
 endmodule

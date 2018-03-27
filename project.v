@@ -9,7 +9,7 @@
 `include "vga_adapter/vga_pll.v"
 
 `define SCREEN_W 8'd160
-`define SCREEN_H 7'd120
+`define SCREEN_H 7'd121
 `define PLAYER_WIDTH 2'd3
 `define PLAYER_SIZE `PLAYER_WIDTH * `PLAYER_WIDTH
 `define PLAYER_COLOR 3'b111
@@ -88,21 +88,22 @@ module project
     assign fire = ~KEY[1];
 
     wire load_level, level_pause, play, game_over; // game states
-    wire [7:0] playerX, bulletX, enemy0X, enemy1X;
-    wire [6:0] playerY, bulletY, enemy0Y, enemy1Y;
+    wire [7:0] playerX, bulletX, enemy0X, enemy1X, enemy2X;
+    wire [6:0] playerY, bulletY, enemy0Y, enemy1Y, enemy2Y;
     wire [2:0] ani_state, enemy_out;
     wire player_move, animate_done;
-    wire player_hit, player_hit0, player_hit1;
-    wire enemy_move, enemy0_move, enemy1_move;
+    wire player_hit, player_hit0, player_hit1, player_hit2;
+    wire enemy_move, enemy0_move, enemy1_move, enemy2_move;
     wire [27:0] count;
-    wire [2:0] enemy0_width, enemy1_width;
+    wire [2:0] enemy0_width, enemy1_width, enemy2_width;
     reg [7:0] enemyX;
     reg [6:0] enemyY;
     reg [2:0] enemy_width;
     wire enemy_hit, bullet_move;
+	 wire [2:0] enemy_color;
 
-    assign enemy_move = enemy0_move || enemy1_move;
-    assign player_hit = player_hit0 || player_hit1;
+    assign enemy_move = enemy0_move || enemy1_move || enemy2_move;
+    assign player_hit = player_hit0 || player_hit1 || player_hit2;
 
     always@(enemy_out, enemy0X, enemy0Y) begin
         case(enemy_out)
@@ -116,6 +117,11 @@ module project
                 enemyY <= enemy1Y;
                 enemy_width <= enemy1_width;
             end
+				3'd2: begin
+                enemyX <= enemy2X;
+                enemyY <= enemy2Y;
+                enemy_width <= enemy2_width;
+            end
             default: begin
                 enemyX <= enemy0X;
                 enemyY <= enemy0Y;
@@ -127,7 +133,8 @@ module project
     // DEBUGGING
     //assign LEDR[0] = load_level;
     //assign LEDR[1] = level_pause;
-    //assign LEDR[2] = play;
+    //assign LEDR[2] = play
+	 //assign LEDR[3] = game_over;
     //assign LEDR[14:11] = count;
 
     datapath d0(
@@ -135,8 +142,11 @@ module project
         .playerY(playerY),
         .enemyX(enemyX),
         .enemyY(enemyY),
+		  .enemy_color(enemy_color),
+		  .bulletX(bulletX),
+        .bulletY(bulletY),
         .enemy_width(enemy_width),
-        .enemy_count(3'd2),
+        .enemy_count(3'd3),
         .ani_state(ani_state),
         .resetn(resetn),
         .clk(CLOCK_50),
@@ -163,6 +173,7 @@ module project
         .left(left),
         .right(right),
         .play(play),
+		  .load_level(load_level),
         .resetn(resetn),
         .clk(CLOCK_50),
         .move(player_move),
@@ -178,18 +189,21 @@ module project
         .enemyY(enemyY),
         .enemy_width(enemy_width),
         .play(play),
+		  .load_level(load_level),
         .resetn(resetn),
         .clk(CLOCK_50),
         .enemy_hit(enemy_hit),
         .move(bullet_move),
         .bulletX(bulletX),
-        .bulletY(bulletY)
+        .bulletY(bulletY),
+		  .enemy_color(enemy_color)
     );
 
     animate_control ac0(
         .load_level(load_level),
         .game_over(game_over),
         .player_move(player_move),
+		  .bullet_move(bullet_move),
         .enemy_move(enemy_move),
         .ani_done(animate_done),
         .resetn(resetn),
@@ -197,8 +211,8 @@ module project
         .ani_state(ani_state)
     );
 
-    // test 3x3 enemy spawned at (80, 60) moving at 45 degree angle down and to the right
-    // I didn't actually try to draw the enemy yet, only calculated the x and y
+    // TODO: having different size enemies causes random stuff
+	 // adding enemies screws up game over
     enemy_control ec0(
         .width(3'd7),
         .start_x(8'd80),
@@ -239,6 +253,27 @@ module project
         .enemyX(enemy1X),
         .enemyY(enemy1Y),
         .enemy_width(enemy1_width)
+    );
+
+	 enemy_control ec2(
+        .width(3'd7),
+        .start_x(8'd30),
+        .start_y(7'd100),
+        .d_x(3'd1),
+        .d_y(3'd1),
+        .leftwards(1'b0),
+        .upwards(1'b1),
+        .playerX(playerX),
+        .playerY(playerY),
+        .load_level(load_level),
+        .play(play),
+        .resetn(resetn),
+        .clk(CLOCK_50),
+        .player_hit(player_hit2),
+        .move(enemy2_move),
+        .enemyX(enemy2X),
+        .enemyY(enemy2Y),
+        .enemy_width(enemy2_width)
     );
 endmodule
 
@@ -308,6 +343,7 @@ module animate_control(
     input load_level,
     input game_over,
     input player_move,
+	 input bullet_move,
     input enemy_move,
     input ani_done,
     input resetn,
@@ -317,14 +353,14 @@ module animate_control(
 
     reg [2:0] state_next;
     localparam IDLE = 3'b000, DRAW = 3'b001, LEVEL = 3'b010, ERASE = 3'b011,
-            ERASEtoDRAW = 3'b100; // draw states
+            ERASEtoDRAW = 3'b100, GAME_OVER = 3'b110, OVERtoLOAD = 3'b101; // draw states
 
     always@(*)
     begin: state_table
         case (ani_state)
             IDLE: begin
-                if (game_over) state_next <= IDLE;
-                else if (player_move || enemy_move) state_next <= ERASE;
+                if (game_over) state_next <= GAME_OVER;
+                else if (player_move || enemy_move || bullet_move) state_next <= ERASE;
                 else if (load_level) state_next <= LEVEL;
                 else state_next <= IDLE;
             end
@@ -344,6 +380,14 @@ module animate_control(
                 if (!ani_done) state_next <= DRAW;
                 else state_next <= ERASEtoDRAW;
             end
+				GAME_OVER: begin
+					if (load_level) state_next <= OVERtoLOAD;
+					else state_next <= GAME_OVER;
+				end
+				OVERtoLOAD: begin
+					if (ani_done) state_next <= LEVEL;
+					else state_next <= OVERtoLOAD;
+				end
             default: state_next = IDLE;
         endcase
     end // state_table
@@ -364,6 +408,9 @@ module datapath(
     input [6:0] playerY,
     input [7:0] enemyX,
     input [6:0] enemyY,
+	 input [2:0] enemy_color,
+	 input [7:0] bulletX,
+    input [6:0] bulletY,
     input [2:0] enemy_width,
     input [2:0] enemy_count,
     input [2:0] ani_state,
@@ -377,7 +424,7 @@ module datapath(
     output reg drawEn
     );
 
-    localparam IDLE = 3'b000, DRAW = 3'b001, LEVEL = 3'b010, ERASE = 3'b011; // draw states
+    localparam IDLE = 3'b000, DRAW = 3'b001, LEVEL = 3'b010, ERASE = 3'b011, GAME_OVER = 3'b110, OVERtoLOAD = 3'b101; // draw states
     reg [27:0] counter;
 
     initial begin
@@ -388,10 +435,28 @@ module datapath(
 
     always@(posedge clk) begin
         if (!resetn) begin
-            ani_done <= 0;
-            drawEn <= 0;
-            counter <= 0;
-            enemy_out <= 0;
+				drawEn <= 1;
+            colour <= 3'b000;
+            if (counter == 0) begin
+                x <= 0;
+                y <= 0;
+            end else if (counter < `SCREEN_W * `SCREEN_H) begin
+                if (y <= `SCREEN_H) begin
+                    if (x < `SCREEN_W) begin
+                        x <= x + 1;
+                    end else if (y < `SCREEN_H) begin
+                        x <= 0;
+                        y <= y + 1;
+                    end
+                end
+            end
+            counter <= counter + 1;
+
+            // done drawing
+            if (counter > `SCREEN_W * `SCREEN_H) begin
+                ani_done <= 1'b1;
+					 drawEn <= 0;
+            end
         end else if (ani_state == LEVEL || ani_state == DRAW) begin
             drawEn <= 1;
             colour <= `PLAYER_COLOR;
@@ -410,6 +475,7 @@ module datapath(
                 end
             end else if (counter <= `PLAYER_SIZE + (enemy_width * enemy_width)) begin
                 // draw enemies
+					 colour <= enemy_color;
                 if (counter <= `PLAYER_SIZE + 1) begin
                     x <= enemyX;
                     y <= enemyY;
@@ -425,8 +491,11 @@ module datapath(
                 // draw phallus
                 x <= playerX + 1;
                 y <= playerY - 1;
+            end else if (counter <= `PLAYER_SIZE + (enemy_width * enemy_width) + 2) begin
+				    // draw bullet
+					 x <= bulletX;
+					 y <= bulletY;
             end
-
             if (counter == `PLAYER_SIZE + (enemy_width * enemy_width) && enemy_out < enemy_count - 1) begin
                 // draw next enemy
                 enemy_out <= enemy_out + 1;
@@ -436,22 +505,22 @@ module datapath(
             end
 
             // done drawing
-            if (counter > `PLAYER_SIZE + (enemy_width * enemy_width) + 1) begin
+            if (counter > `PLAYER_SIZE + (enemy_width * enemy_width) + 2) begin
                 ani_done <= 1'b1;
                 enemy_out <= 0;
             end
-        end else if (!resetn || ani_state == ERASE) begin
+        end else if (!resetn || ani_state == ERASE || ani_state == OVERtoLOAD) begin
             drawEn <= 1;
             colour <= 3'b000;
             if (counter == 0) begin
-                x <= 1;
-                y <= 1;
+                x <= 0;
+                y <= 0;
             end else if (counter < `SCREEN_W * `SCREEN_H) begin
                 if (y <= `SCREEN_H) begin
                     if (x < `SCREEN_W) begin
                         x <= x + 1;
                     end else if (y < `SCREEN_H) begin
-                        x <= 1;
+                        x <= 0;
                         y <= y + 1;
                     end
                 end

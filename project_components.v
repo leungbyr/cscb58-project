@@ -143,3 +143,57 @@ module enemy_control(
     assign player_hit = (playerX <= (enemyX + width - 1) && enemyX <= (playerX + `PLAYER_WIDTH - 1))
         && (playerY <= (enemyY + width - 1) && enemyY <= (playerY + `PLAYER_WIDTH - 1));
 endmodule
+
+module bullet_control(
+    input fire,
+    input [7:0] playerX,
+    input [6:0] playerY,
+    input [7:0] enemyX,
+    input [6:0] enemyY,
+    input [2:0] enemy_width,
+    input play,
+    input resetn,
+    input clk,
+    output enemy_hit,
+    output reg move,
+    output reg [7:0] bulletX,
+    output reg [6:0] bulletY
+    );
+
+    localparam RATE_DIV = 28'd1000000; // lower to move faster
+    reg [27:0] counter;
+    reg fired;
+    
+    initial fired <= 0;
+    
+    always@(posedge clk) begin
+        move <= 0;
+        if (!resetn) begin
+            fired <= 0;
+            bulletX <= playerX + 1;
+            bulletY <= playerY - 1;
+        end
+        if (play) begin
+            if (fire) begin
+                bulletX <= playerX + 1;
+                bulletY <= playerY - 1;
+                fired <= 1;
+                counter <= 0;
+            end else if (bulletY <= 0) begin
+                fired <= 0;
+            end else if (fired) begin
+                if (counter == RATE_DIV) begin
+                    bulletY <= bulletY - 1;
+                    counter <= 0;
+                    move <= 1;
+                end else begin
+                    counter <= counter + 1;
+                end
+            end
+        end
+    end
+    
+    // collision with enemy
+    assign enemy_hit = (bulletX <= (enemyX + enemy_width - 1) && enemyX <= bulletX)
+        && (bulletY <= (enemyY + enemy_width - 1) && enemyY <= bulletY);
+endmodule

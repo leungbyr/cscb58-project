@@ -85,10 +85,11 @@ module project
     assign go = ~KEY[0];
     assign left = ~KEY[3];
     assign right = ~KEY[2];
+    assign fire = ~KEY[1];
 
     wire load_level, level_pause, play, game_over; // game states
-    wire [7:0] playerX, enemy0X, enemy1X;
-    wire [6:0] playerY, enemy0Y, enemy1Y;
+    wire [7:0] playerX, bulletX, enemy0X, enemy1X;
+    wire [6:0] playerY, bulletY, enemy0Y, enemy1Y;
     wire [2:0] ani_state, enemy_out;
     wire player_move, animate_done;
     wire player_hit, player_hit0, player_hit1;
@@ -98,6 +99,7 @@ module project
     reg [7:0] enemyX;
     reg [6:0] enemyY;
     reg [2:0] enemy_width;
+    wire enemy_hit, bullet_move;
 
     assign enemy_move = enemy0_move || enemy1_move;
     assign player_hit = player_hit0 || player_hit1;
@@ -166,6 +168,22 @@ module project
         .move(player_move),
         .playerX(playerX),
         .playerY(playerY)
+    );
+    
+    bullet_control bc0(
+        .fire(fire),
+        .playerX(playerX),
+        .playerY(playerY),
+        .enemyX(enemyX),
+        .enemyY(enemyY),
+        .enemy_width(enemy_width),
+        .play(play),
+        .resetn(resetn),
+        .clk(CLOCK_50),
+        .enemy_hit(enemy_hit),
+        .move(bullet_move),
+        .bulletX(bulletX),
+        .bulletY(bulletY)
     );
 
     animate_control ac0(

@@ -87,12 +87,12 @@ module project
     assign right = ~KEY[2];
     
     wire load_level, level_pause, play; // game states
-    wire [7:0] playerX, enemyX;
-    wire [6:0] playerY, enemyY;
+    wire [7:0] playerX, enemyX, enemyX2;
+    wire [6:0] playerY, enemyY, enemyY2;
     wire [2:0] ani_state;
-    wire player_move, animate_done, player_hit, enemy_move;
+    wire player_move, animate_done, player_hit, enemy_move, enemy_move2;
     wire [27:0] count;
-    wire [2:0] enemy_width, enemy_out;
+    wire [2:0] enemy_width, enemy_width2, enemy_out;
     
     // DEBUGGING
     assign LEDR[0] = load_level;
@@ -106,16 +106,16 @@ module project
         .enemyX(enemyX),
         .enemyY(enemyY),
         .enemy_width(enemy_width),
-		.enemy_count(enemy_count)
+		  .enemy_count(enemy_count),
         .ani_state(ani_state),
         .resetn(resetn),
         .clk(CLOCK_50),
         .ani_done(animate_done),
-		.enemy_out(enemy_out),
+		  .enemy_out(enemy_out),
         .x(x),
         .y(y),
         .colour(colour),
-        .drawEn(writeEn),
+        .drawEn(writeEn)
     );
     
     control c0(
@@ -135,7 +135,7 @@ module project
         .clk(CLOCK_50),
         .move(player_move),
         .playerX(playerX),
-        .playerY(playerY),
+        .playerY(playerY)
     );
     
     animate_control ac0(
@@ -155,21 +155,21 @@ module project
         .start_x(8'd80),
         .start_y(7'd60),
         .d_x(3'd1),
-		.d_y(3'd1),
-		.leftwards(1'b0),
-		.upwards(1'b0),
-		.playerX(playerX),	
-		.playerY(playerY),
-		.output_pos(enemy_out == 3'd0)
-		.load_level(load_level),
-		.play(play),
+		  .d_y(3'd1),
+		  .leftwards(1'b0),
+		  .upwards(1'b0),
+		  .playerX(playerX),	
+		  .playerY(playerY),
+		  .output_pos(enemy_out == 3'd0),
+		  .load_level(load_level),
+		  .play(play),
         .resetn(resetn),
         .clk(CLOCK_50),
         .player_hit(player_hit),
-		.move(enemy_move),
+		  .move(enemy_move),
         .enemyX(enemyX),
         .enemyY(enemyY),
-		.enemy_width(enemy_width)
+		  .enemy_width(enemy_width)
     );
 	
 	enemy_control ec1(
@@ -177,21 +177,21 @@ module project
         .start_x(8'd80),
         .start_y(7'd60),
         .d_x(3'd1),
-		.d_y(3'd1),
-		.leftwards(1'b0),
-		.upwards(1'b0),
-		.playerX(playerX),	
-		.playerY(playerY),	
-		.output_pos(enemy_out == 3'd1)
-		.load_level(load_level),
-		.play(play),
+		  .d_y(3'd1),
+		  .leftwards(1'b0),
+		  .upwards(1'b0),
+		  .playerX(playerX),	
+		  .playerY(playerY),	
+		  .output_pos(enemy_out == 3'd1),
+		  .load_level(load_level),
+		  .play(play),
         .resetn(resetn),
         .clk(CLOCK_50),
         .player_hit(player_hit),
-		.move(enemy_move),
-        .enemyX(enemyX),
-        .enemyY(enemyY),
-		.enemy_width(enemy_width)
+		  .move(enemy_move2),
+        .enemyX(enemyX2),
+        .enemyY(enemyY2),
+		  .enemy_width(enemy_width2)
     );
 endmodule
 
@@ -254,7 +254,7 @@ endmodule
 module animate_control(
     input load_level,
     input player_move,
-     input enemy_move,
+    input enemy_move,
     input ani_done,
     input resetn,
     input clk,
@@ -310,8 +310,8 @@ module datapath(
     input [7:0] enemyX,
     input [6:0] enemyY,
     input [2:0] enemy_width,
-	input [2:0] enemy_count,
-	input [2:0] enemy_out,
+	 input [2:0] enemy_count,
+	 input [2:0] enemy_out,
     input [2:0] ani_state,
     input resetn,
     input clk,
@@ -319,7 +319,10 @@ module datapath(
     output reg [7:0] x,
     output reg [6:0] y,
     output reg [2:0] colour,
-    output reg drawEn,
+	 // Assigning enemy_out a value when it's an input doesnt
+	 // work, so changed it to output enemy_output
+	 output reg[2:0] enemy_output,
+    output reg drawEn
     );
 
     localparam IDLE = 3'b000, DRAW = 3'b001, LEVEL = 3'b010, ERASE = 3'b011; // draw states
@@ -329,19 +332,19 @@ module datapath(
         colour <= 3'b111;
         ani_done <= 0;
         counter <= 0;
-		enemy_out <= 0;
+		  enemy_output <= 0;
     end
     
     always@(posedge clk) begin
-        if (!resetn) begin
+	     if (!resetn) begin
             // TODO: clear the screen
         end else if (ani_state == LEVEL) begin
-            drawEn <= 1;
-			colour <= `PLAYER_COLOR;
-			if (counter == 0) begin
+			    drawEn <= 1;
+				 colour <= `PLAYER_COLOR;
+		  if (counter == 0) begin
 				x <= playerX;
 				y <= playerY;
-			end else if (counter < `PLAYER_SIZE) begin // draw player
+		  end else if (counter < `PLAYER_SIZE) begin // draw player
 				if (y <= playerY + `PLAYER_WIDTH - 1) begin
 					if (x < playerX + `PLAYER_WIDTH - 1) begin
 						x <= x + 1;
@@ -353,8 +356,8 @@ module datapath(
 			end else if (counter <= `PLAYER_SIZE + (enemy_width * enemy_width)) begin 
 				// draw enemy
 				if (counter == `PLAYER_SIZE) begin
-					x <= enemyX;
-					y <= enemyY;
+				    x <= enemyX;
+					 y <= enemyY;
 				end else if (y <= enemyY + enemy_width - 1) begin
 					if (x < enemyX + enemy_width - 1) begin
 						x <= x + 1;
@@ -364,7 +367,7 @@ module datapath(
 					end
 				end else if (enemy_out < enemy_count - 1)
 					// reset counter and load next enemy
-					enemy_out <= enemy_out + 1;
+					enemy_output <= enemy_output + 1;
 					counter <= `PLAYER_SIZE;
 				end
 			end
@@ -373,9 +376,10 @@ module datapath(
 			// done drawing
 			if (counter > `PLAYER_SIZE + (enemy_width * enemy_width)) begin
 				ani_done <= 1'b1;
-				enemy_out <= 0;
+				enemy_output <= 0;
 			end
-        end else if (ani_state == ERASE) begin
+			// below line was end else if (one to many ends)
+         else if (ani_state == ERASE) begin
             // TODO: draw the level
             drawEn <= 1;
 			colour <= 3'b000;

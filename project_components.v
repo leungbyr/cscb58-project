@@ -1,5 +1,5 @@
 `define SCREEN_W 8'd160
-`define SCREEN_H 7'd121
+`define SCREEN_H 7'd120
 `define PLAYER_WIDTH 2'd3
 
 module player_control(

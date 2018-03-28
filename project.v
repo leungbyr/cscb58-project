@@ -9,7 +9,7 @@
 `include "vga_adapter/vga_pll.v"
 
 `define SCREEN_W 8'd160
-`define SCREEN_H 7'd121
+`define SCREEN_H 7'd120
 `define PLAYER_WIDTH 2'd3
 `define PLAYER_SIZE `PLAYER_WIDTH * `PLAYER_WIDTH
 `define PLAYER_COLOR 3'b111
@@ -352,8 +352,8 @@ module animate_control(
     );
 
     reg [2:0] state_next;
-    localparam IDLE = 3'b000, DRAW = 3'b001, LEVEL = 3'b010, ERASE = 3'b011,
-            ERASEtoDRAW = 3'b100, GAME_OVER = 3'b110, OVERtoLOAD = 3'b101; // draw states
+    localparam IDLE = 3'b000, DRAW = 3'b001, LEVEL = 3'b010, ERASE = 3'b011,    // draw states
+            ERASEtoDRAW = 3'b100, OVER_ERASE = 3'b101, GAME_OVER = 3'b110, OVERtoLEVEL = 3'b111;
 
     always@(*)
     begin: state_table
@@ -381,12 +381,16 @@ module animate_control(
                 else state_next <= ERASEtoDRAW;
             end
             GAME_OVER: begin
-                if (load_level) state_next <= OVERtoLOAD;
+                if (load_level) state_next <= OVER_ERASE;
                 else state_next <= GAME_OVER;
             end
-            OVERtoLOAD: begin
-                if (ani_done) state_next <= LEVEL;
-                else state_next <= OVERtoLOAD;
+            OVER_ERASE: begin
+                if (ani_done) state_next <= OVERtoLEVEL;
+                else state_next <= OVER_ERASE;
+            end
+            OVERtoLEVEL: begin
+                if (!ani_done) state_next <= LEVEL;
+                else state_next <= OVERtoLEVEL;
             end
             default: state_next = IDLE;
         endcase
@@ -424,8 +428,11 @@ module datapath(
     output reg drawEn
     );
 
-    localparam IDLE = 3'b000, DRAW = 3'b001, LEVEL = 3'b010, ERASE = 3'b011, GAME_OVER = 3'b110, OVERtoLOAD = 3'b101; // draw states
+    localparam IDLE = 3'b000, DRAW = 3'b001, LEVEL = 3'b010, ERASE = 3'b011,    // draw states
+            ERASEtoDRAW = 3'b100, OVER_ERASE = 3'b101, GAME_OVER = 3'b110, OVERtoLEVEL = 3'b111;
     reg [27:0] counter;
+    reg [7:0] player_x, enemy_x, bullet_x;
+    reg [6:0] player_y, enemy_y, bullet_y;
 
     initial begin
         ani_done <= 0;
@@ -434,7 +441,7 @@ module datapath(
     end
 
     always@(posedge clk) begin
-        if (!resetn) begin
+        if (!resetn || ani_state == ERASE || ani_state == OVER_ERASE) begin
             drawEn <= 1;
             colour <= 3'b000;
             if (counter == 0) begin
@@ -461,15 +468,19 @@ module datapath(
             drawEn <= 1;
             colour <= `PLAYER_COLOR;
             if (counter == 0) begin
+                player_x <= playerX;
+                player_y <= playerY;
+                bullet_x <= bulletX;
+                bullet_y <= bulletY;
                 x <= playerX;
                 y <= playerY;
             end else if (counter < `PLAYER_SIZE) begin
                 // draw player
-                if (y <= playerY + `PLAYER_WIDTH - 1) begin
-                    if (x < playerX + `PLAYER_WIDTH - 1) begin
+                if (y <= player_y + `PLAYER_WIDTH - 1) begin
+                    if (x < player_x + `PLAYER_WIDTH - 1) begin
                         x <= x + 1;
-                    end else if (y < playerY + `PLAYER_WIDTH - 1) begin
-                        x <= playerX;
+                    end else if (y < player_y + `PLAYER_WIDTH - 1) begin
+                        x <= player_x;
                         y <= y + 1;
                     end
                 end
@@ -479,22 +490,24 @@ module datapath(
                 if (counter == `PLAYER_SIZE) begin
                     x <= enemyX;
                     y <= enemyY;
-                end else if (y <= enemyY + enemy_width - 1) begin
-                    if (x < enemyX + enemy_width - 1) begin
+                    enemy_x <= enemyX;
+                    enemy_y <= enemyY;
+                end else if (y <= enemy_y + enemy_width - 1) begin
+                    if (x < enemy_x + enemy_width - 1) begin
                         x <= x + 1;
-                    end else if (y < enemyY + enemy_width - 1) begin
-                        x <= enemyX;
+                    end else if (y < enemy_y + enemy_width - 1) begin
+                        x <= enemy_x;
                         y <= y + 1;
                     end
                 end
             end else if (counter < `PLAYER_SIZE + (enemy_width * enemy_width) + 1) begin
                 // draw phallus
-                x <= playerX + 1;
-                y <= playerY - 1;
+                x <= player_x + 1;
+                y <= player_y - 1;
             end else if (counter < `PLAYER_SIZE + (enemy_width * enemy_width) + 2) begin
                 // draw bullet
-                x <= bulletX;
-                y <= bulletY;
+                x <= bullet_x;
+                y <= bullet_y;
             end
             
             if (counter == `PLAYER_SIZE + (enemy_width * enemy_width) - 1
@@ -510,28 +523,6 @@ module datapath(
             if (counter >= `PLAYER_SIZE + (enemy_width * enemy_width) + 1) begin
                 ani_done <= 1'b1;
                 enemy_out <= 0;
-            end
-        end else if (!resetn || ani_state == ERASE || ani_state == OVERtoLOAD) begin
-            drawEn <= 1;
-            colour <= 3'b000;
-            if (counter == 0) begin
-                x <= 0;
-                y <= 0;
-            end else if (counter < `SCREEN_W * `SCREEN_H) begin
-                if (y <= `SCREEN_H) begin
-                    if (x < `SCREEN_W) begin
-                        x <= x + 1;
-                    end else if (y < `SCREEN_H) begin
-                        x <= 0;
-                        y <= y + 1;
-                    end
-                end
-            end
-            counter <= counter + 1;
-
-            // done drawing
-            if (counter > `SCREEN_W * `SCREEN_H) begin
-                ani_done <= 1'b1;
             end
         end else begin
             drawEn <= 0;

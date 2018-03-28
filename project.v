@@ -91,19 +91,19 @@ module project
     wire [7:0] playerX, bulletX, enemy0X, enemy1X, enemy2X;
     wire [6:0] playerY, bulletY, enemy0Y, enemy1Y, enemy2Y;
     wire [2:0] ani_state, enemy_out;
-    wire player_move, animate_done;
-    wire player_hit, player_hit0, player_hit1, player_hit2;
+    wire player_move, bullet_move, animate_done;
     wire enemy_move, enemy0_move, enemy1_move, enemy2_move;
-    wire [27:0] count;
+    wire player_hit, player_hit0, player_hit1, player_hit2;
+    wire bullet_hit, bullet_hit0, bullet_hit1, bullet_hit2;
     wire [2:0] enemy0_width, enemy1_width, enemy2_width;
     reg [7:0] enemyX;
     reg [6:0] enemyY;
     reg [2:0] enemy_width;
-    wire enemy_hit, bullet_move;
     wire [2:0] enemy_color;
 
     assign enemy_move = enemy0_move || enemy1_move || enemy2_move;
     assign player_hit = player_hit0 || player_hit1 || player_hit2;
+    assign bullet_hit = bullet_hit0 || bullet_hit1 || bullet_hit2;
 
     always@(enemy_out, enemy0X, enemy0Y) begin
         case(enemy_out)
@@ -185,14 +185,11 @@ module project
         .fire(fire),
         .playerX(playerX),
         .playerY(playerY),
-        .enemyX(enemyX),
-        .enemyY(enemyY),
-        .enemy_width(enemy_width),
+        .bullet_hit(bullet_hit),
         .play(play),
         .load_level(load_level),
         .resetn(resetn),
         .clk(CLOCK_50),
-        .enemy_hit(enemy_hit),
         .move(bullet_move),
         .bulletX(bulletX),
         .bulletY(bulletY),
@@ -223,11 +220,14 @@ module project
         .upwards(1'b0),
         .playerX(playerX),
         .playerY(playerY),
+        .bulletX(bulletX),
+        .bulletY(bulletY),
         .load_level(load_level),
         .play(play),
         .resetn(resetn),
         .clk(CLOCK_50),
         .player_hit(player_hit0),
+        .bullet_hit(bullet_hit0),
         .move(enemy0_move),
         .enemyX(enemy0X),
         .enemyY(enemy0Y),
@@ -244,11 +244,14 @@ module project
         .upwards(1'b0),
         .playerX(playerX),
         .playerY(playerY),
+        .bulletX(bulletX),
+        .bulletY(bulletY),
         .load_level(load_level),
         .play(play),
         .resetn(resetn),
         .clk(CLOCK_50),
         .player_hit(player_hit1),
+        .bullet_hit(bullet_hit1),
         .move(enemy1_move),
         .enemyX(enemy1X),
         .enemyY(enemy1Y),
@@ -265,11 +268,14 @@ module project
         .upwards(1'b1),
         .playerX(playerX),
         .playerY(playerY),
+        .bulletX(bulletX),
+        .bulletY(bulletY),
         .load_level(load_level),
         .play(play),
         .resetn(resetn),
         .clk(CLOCK_50),
         .player_hit(player_hit2),
+        .bullet_hit(bullet_hit2),
         .move(enemy2_move),
         .enemyX(enemy2X),
         .enemyY(enemy2Y),

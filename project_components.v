@@ -1,12 +1,12 @@
 `define SCREEN_W 8'd160
-`define SCREEN_H 7'd120
+`define SCREEN_H 7'd121
 `define PLAYER_WIDTH 2'd3
 
 module player_control(
     input left,
     input right,
     input play,
-	 input load_level,
+    input load_level,
     input resetn,
     input clk,
     output reg move,
@@ -102,14 +102,14 @@ module enemy_control(
         if (play) begin
             if (counter == RATE_DIV) begin
                 if (left) begin
-                    if (enemyX - d_x <= 0) begin // hit left edge, change directions
+                    if (enemyX <= d_x) begin // hit left edge, change directions
                         enemyX <= 0;
                         left <= 0;
                     end else begin
                         enemyX <= enemyX - d_x;
                     end
                 end else begin
-                    if ((enemyX + width - 1) + d_x >= `SCREEN_W) begin // hit right edge
+                    if (enemyX + width - 1 >= `SCREEN_W - d_x) begin // hit right edge
                         enemyX <= `SCREEN_W - width + 1;
                         left <= 1;
                     end else begin
@@ -117,14 +117,14 @@ module enemy_control(
                     end
                 end
                 if (up) begin
-                    if (enemyY - d_y <= 0) begin // hit top edge
+                    if (enemyY <= d_y) begin // hit top edge
                         enemyY <= 0;
                         up <= 0;
                     end else begin
                         enemyY <= enemyY - d_y;
                     end
                 end else begin
-                    if ((enemyY + width - 1) + d_y >= `SCREEN_H) begin // hit bottom edge
+                    if (enemyY + width - 1 >= `SCREEN_H - d_y) begin // hit bottom edge
                         enemyY <= `SCREEN_H - width + 1;
                         up <= 1;
                     end else begin
@@ -153,14 +153,14 @@ module bullet_control(
     input [6:0] enemyY,
     input [2:0] enemy_width,
     input play,
-	 input load_level,
+    input load_level,
     input resetn,
     input clk,
     output enemy_hit,
     output reg move,
     output reg [7:0] bulletX,
     output reg [6:0] bulletY,
-	 output reg [2:0] enemy_color
+    output reg [2:0] enemy_color
     );
 
     localparam RATE_DIV = 28'd500000; // lower to move faster
@@ -168,28 +168,28 @@ module bullet_control(
     reg fired;
     
     initial begin
-	     fired <= 0;
-	     enemy_color <= 3'b111;
-		  
-	 end
+         fired <= 0;
+         enemy_color <= 3'b111;
+          
+     end
     
     always@(posedge clk) begin
         move <= 0;
         if (!resetn || load_level) begin
             fired <= 0;
             enemy_color <= 3'b111;
-				bulletX <= playerX + 1;
+            bulletX <= playerX + 1;
             bulletY <= playerY;
         end
         if (play) begin
             if (fire && !fired) begin
                 fired <= 1;
-					 bulletX <= playerX + 1;
+                     bulletX <= playerX + 1;
                 bulletY <= playerY;
                 counter <= 0;
             end else if (fired) begin
-				    if (bulletY <= 0) begin
-					     fired <= 0;
+                    if (bulletY <= 0) begin
+                         fired <= 0;
                 end else if (counter == RATE_DIV) begin
                     bulletY <= bulletY - 1;
                     counter <= 0;
@@ -198,22 +198,21 @@ module bullet_control(
                     counter <= counter + 1;
                 end
             end else if (!fired) begin
-				    bulletX <= playerX + 1;
+                    bulletX <= playerX + 1;
                 bulletY <= playerY;
-				end
+                end
         end
-		  
-		  if (enemy_hit) begin
-		      fired <= 0;
-				bulletX <= playerX + 1;
+          
+        if (enemy_hit) begin
+            fired <= 0;
+            bulletX <= playerX + 1;
             bulletY <= playerY;
-		      if (enemy_color > 0)
+            if (enemy_color > 0)
                 enemy_color <= enemy_color - 1;
-		  end
+        end
     end
     
     // collision with enemy
     assign enemy_hit = (bulletX <= (enemyX + enemy_width - 1) && enemyX <= bulletX)
         && (bulletY <= (enemyY + enemy_width - 1) && enemyY <= bulletY);
 endmodule
-

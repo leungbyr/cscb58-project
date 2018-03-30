@@ -76,33 +76,34 @@ module enemy_control(
     input [6:0] playerY,
     input [7:0] bulletX,
     input [6:0] bulletY,
+    input enable,
     input load_level,
     input play,
     input resetn,
     input clk,
     output player_hit, // player collision
     output bullet_hit,
+    output [2:0] enemy_width,
     output reg move,
     output reg [7:0] enemyX, // coordinates for the top left pixel of the enemy
-    output reg [6:0] enemyY,
-    output reg [2:0] enemy_width
+    output reg [6:0] enemyY
     );
     
     localparam RATE_DIV = 28'd1000000; // lower to move faster
     reg [27:0] counter;
-    reg left, up;
+    reg left, up, alive;
     
     always@(posedge clk) begin
         if (!resetn || load_level) begin
             enemyX <= start_x;
             enemyY <= start_y;
-            enemy_width <= width;
             counter <= 0;
             left <= leftwards;
             up <= upwards;
             move <= 0;
+            alive <= enable;
         end
-        if (play) begin
+        if (play && enable) begin
             if (counter == RATE_DIV) begin
                 if (left) begin
                     if (enemyX <= d_x) begin // hit left edge, change directions
@@ -141,15 +142,20 @@ module enemy_control(
                 move <= 0;
             end
         end
+        if (bullet_hit) begin
+            alive <= 0;
+        end
     end
     
     // collision with player
-    assign player_hit = (playerX <= (enemyX + width - 1) && enemyX <= (playerX + `PLAYER_WIDTH - 1))
-        && (playerY <= (enemyY + width - 1) && enemyY <= (playerY + `PLAYER_WIDTH - 1));
+    assign player_hit = (playerX <= (enemyX + enemy_width - 1) && enemyX <= (playerX + `PLAYER_WIDTH - 1))
+        && (playerY <= (enemyY + enemy_width - 1) && enemyY <= (playerY + `PLAYER_WIDTH - 1));
         
     // collision with bullet
-    assign bullet_hit = (bulletX <= (enemyX + width - 1) && enemyX <= bulletX)
-        && (bulletY <= (enemyY + width - 1) && enemyY <= bulletY);
+    assign bullet_hit = (bulletX <= (enemyX + enemy_width - 1) && enemyX <= bulletX)
+        && (bulletY <= (enemyY + enemy_width - 1) && enemyY <= bulletY);
+     
+    assign enemy_width = alive ? width : 0;
 endmodule
 
 module bullet_control(

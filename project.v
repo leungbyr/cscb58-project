@@ -9,7 +9,7 @@
 `include "vga_adapter/vga_pll.v"
 
 `define SCREEN_W 8'd160
-`define SCREEN_H 7'd120
+`define SCREEN_H 7'd121
 `define PLAYER_WIDTH 2'd3
 `define PLAYER_SIZE `PLAYER_WIDTH * `PLAYER_WIDTH
 `define PLAYER_COLOR 3'b111
@@ -48,7 +48,7 @@ module project
     output  [9:0]   VGA_B;                  //  VGA Blue[9:0]
 
     wire resetn;
-    assign resetn = SW[0];
+    assign resetn = SW[9];
 
     // Create the colour, x, y and writeEn wires that are inputs to the controller.
     wire [2:0] colour;
@@ -86,11 +86,14 @@ module project
     assign left = ~KEY[3];
     assign right = ~KEY[2];
     assign fire = ~KEY[1];
+    wire [2:0] level;
+    assign level = SW[2:0];
 
-    wire load_level, level_pause, play, game_over; // game states
+    wire load_level, level_pause, play, game_over, level_select; // game states
     wire [7:0] playerX, bulletX, enemy0X, enemy1X, enemy2X;
     wire [6:0] playerY, bulletY, enemy0Y, enemy1Y, enemy2Y;
-    wire [2:0] ani_state, enemy_out;
+    wire [2:0] ani_state;
+    wire [3:0] enemy_count, enemy_out;
     wire player_move, bullet_move, animate_done;
     wire enemy_move, enemy0_move, enemy1_move, enemy2_move;
     wire player_hit, player_hit0, player_hit1, player_hit2;
@@ -99,25 +102,32 @@ module project
     reg [7:0] enemyX;
     reg [6:0] enemyY;
     reg [2:0] enemy_width;
+    reg [3:0] enemies_alive;
+    wire [3:0] enemies_enabled;
+    wire [14:0] enemies;
     wire [2:0] enemy_color;
 
+    assign enemy_count = 4'd3;
     assign enemy_move = enemy0_move || enemy1_move || enemy2_move;
     assign player_hit = player_hit0 || player_hit1 || player_hit2;
     assign bullet_hit = bullet_hit0 || bullet_hit1 || bullet_hit2;
+    assign enemy0_enable = (enemies & 15'b000000000000001) > 0 ? 1 : 0;
+    assign enemy1_enable = (enemies & 15'b000000000000010) > 0 ? 1 : 0;
+    assign enemy2_enable = (enemies & 15'b000000000000100) > 0 ? 1 : 0;
 
-    always@(enemy_out, enemy0X, enemy0Y) begin
+    always@(*) begin
         case(enemy_out)
-            3'd0: begin
+            4'd0: begin
                 enemyX <= enemy0X;
                 enemyY <= enemy0Y;
                 enemy_width <= enemy0_width;
             end
-            3'd1: begin
+            4'd1: begin
                 enemyX <= enemy1X;
                 enemyY <= enemy1Y;
                 enemy_width <= enemy1_width;
             end
-            3'd2: begin
+            4'd2: begin
                 enemyX <= enemy2X;
                 enemyY <= enemy2Y;
                 enemy_width <= enemy2_width;
@@ -128,8 +138,16 @@ module project
                 enemy_width <= enemy0_width;
             end
         endcase
+        
+        if (load_level) begin
+            enemies_alive <= enemies_enabled;
+        end
     end
-
+    
+    always@(posedge bullet_hit) begin
+        enemies_alive <= enemies_alive - 1;
+    end
+    
     // DEBUGGING
     //assign LEDR[0] = load_level;
     //assign LEDR[1] = level_pause;
@@ -146,7 +164,7 @@ module project
         .bulletX(bulletX),
         .bulletY(bulletY),
         .enemy_width(enemy_width),
-        .enemy_count(3'd3),
+        .enemy_count(enemy_count),
         .ani_state(ani_state),
         .resetn(resetn),
         .clk(CLOCK_50),
@@ -161,12 +179,14 @@ module project
     control c0(
         .go(go),
         .player_hit(player_hit),
+        .enemies_alive(enemies_alive),
         .resetn(resetn),
         .clk(CLOCK_50),
         .load_level(load_level),
         .level_pause(level_pause),
         .play(play),
-        .game_over(game_over)
+        .game_over(game_over),
+        .level_select(level_select)
     );
 
     player_control pc0(
@@ -207,6 +227,14 @@ module project
         .clk(CLOCK_50),
         .ani_state(ani_state)
     );
+    
+    level_select ls0(
+        .level(level),
+        .level_select(level_select),
+        .clk(CLOCK_50),
+        .enemies_enabled(enemies_enabled),
+        .enemies(enemies)
+    );
 
     // TODO: having different size enemies causes random stuff
     // adding enemies screws up game over
@@ -222,6 +250,7 @@ module project
         .playerY(playerY),
         .bulletX(bulletX),
         .bulletY(bulletY),
+        .enable(enemy0_enable),
         .load_level(load_level),
         .play(play),
         .resetn(resetn),
@@ -246,6 +275,7 @@ module project
         .playerY(playerY),
         .bulletX(bulletX),
         .bulletY(bulletY),
+        .enable(enemy1_enable),
         .load_level(load_level),
         .play(play),
         .resetn(resetn),
@@ -270,6 +300,7 @@ module project
         .playerY(playerY),
         .bulletX(bulletX),
         .bulletY(bulletY),
+        .enable(enemy2_enable),
         .load_level(load_level),
         .play(play),
         .resetn(resetn),
@@ -284,9 +315,18 @@ module project
 endmodule
 
 // controls game states
-module control(go, player_hit, resetn, clk, load_level, level_pause, play, game_over);
-    input go, player_hit, resetn, clk;
-    output load_level, level_pause, play, game_over;
+module control(
+    input go,
+    input player_hit,
+    input [3:0] enemies_alive,
+    input resetn,
+    input clk,
+    output load_level,
+    output level_pause,
+    output play,
+    output game_over,
+    output level_select
+    );
 
     reg [2:0] state, state_next;
     localparam LEVEL_SELECT = 3'b000, LOAD_LEVEL = 3'b001, LEVEL_PAUSE = 3'b010,    // states
@@ -313,7 +353,7 @@ module control(go, player_hit, resetn, clk, load_level, level_pause, play, game_
             end
             PLAY: begin
                 if (go) state_next <= PAUSING;
-                else if (player_hit) state_next <= GAME_OVER;
+                else if (player_hit || enemies_alive == 0) state_next <= GAME_OVER;
                 else state_next <= PLAY;
             end
             PAUSING: begin
@@ -342,6 +382,7 @@ module control(go, player_hit, resetn, clk, load_level, level_pause, play, game_
     assign level_pause = (state == LEVEL_PAUSE);
     assign play = (state == PLAY);
     assign game_over = (state == GAME_OVER);
+    assign level_select = (state == LEVEL_SELECT);
 endmodule
 
 // controls what is being drawn
@@ -412,6 +453,34 @@ module animate_control(
     end // state_FFS
 endmodule
 
+module level_select(
+    input [2:0] level,
+    input level_select,
+    input clk,
+    output reg [3:0] enemies_enabled,
+    output reg [14:0] enemies
+    );
+    
+    always@(posedge clk) begin
+        if (level_select) begin
+            case (level)
+                3'd1: begin
+                    enemies <= 15'b000000000000011;  
+                    enemies_enabled <= 4'd2;
+                end
+                3'd2: begin
+                    enemies <= 15'b000000000000111;
+                    enemies_enabled <= 4'd3;
+                end
+                default: begin
+                    enemies <= 15'b000000000000011;
+                    enemies_enabled <= 4'd2;
+                end
+            endcase
+        end
+    end
+endmodule
+
 // does the drawing
 module datapath(
     input [7:0] playerX,
@@ -422,12 +491,12 @@ module datapath(
     input [7:0] bulletX,
     input [6:0] bulletY,
     input [2:0] enemy_width,
-    input [2:0] enemy_count,
+    input [3:0] enemy_count,
     input [2:0] ani_state,
     input resetn,
     input clk,
     output reg ani_done,
-    output reg [2:0] enemy_out,
+    output reg [3:0] enemy_out,
     output reg [7:0] x,
     output reg [6:0] y,
     output reg [2:0] colour,

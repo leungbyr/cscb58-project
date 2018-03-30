@@ -472,7 +472,7 @@ module datapath(
             end
         end else if (ani_state == LEVEL || ani_state == DRAW) begin
             drawEn <= 1;
-            colour <= `PLAYER_COLOR;
+            colour <= `PLAYER_COLOR; // default
             if (counter == 0) begin
                 player_x <= playerX;
                 player_y <= playerY;
@@ -516,7 +516,8 @@ module datapath(
                 y <= bullet_y;
             end
             
-            if (counter == `PLAYER_SIZE + (enemy_width * enemy_width) - 1
+            if ((counter == `PLAYER_SIZE + (enemy_width * enemy_width) - 1
+                || (counter >= `PLAYER_SIZE + (enemy_width * enemy_width) && enemy_width == 0))
                 && enemy_out < enemy_count - 1) begin
                 // draw next enemy
                 enemy_out <= enemy_out + 1;

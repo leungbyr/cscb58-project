@@ -169,8 +169,7 @@ module bullet_control(
     input clk,
     output reg move,
     output reg [7:0] bulletX,
-    output reg [6:0] bulletY,
-    output reg [2:0] enemy_color
+    output reg [6:0] bulletY
     );
 
     localparam RATE_DIV = 28'd500000; // lower to move faster
@@ -178,15 +177,13 @@ module bullet_control(
     reg fired;
     
     initial begin
-         fired <= 0;
-         enemy_color <= 3'b111;      
+         fired <= 0;     
     end
     
     always@(posedge clk) begin
         move <= 0; // default
         if (!resetn || load_level) begin
             fired <= 0;
-            enemy_color <= 3'b111;
             bulletX <= playerX + 1;
             bulletY <= playerY + 1;
             counter <= 0;
@@ -220,8 +217,6 @@ module bullet_control(
                 bulletX <= playerX + 1;
                 bulletY <= playerY + 1;
                 counter <= 0;
-                if (enemy_color > 0)
-                    enemy_color <= enemy_color - 1;
             end
         end
     end

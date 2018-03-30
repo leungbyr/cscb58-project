@@ -99,13 +99,13 @@ module project
     wire player_hit, player_hit0, player_hit1, player_hit2;
     wire bullet_hit, bullet_hit0, bullet_hit1, bullet_hit2;
     wire [2:0] enemy0_width, enemy1_width, enemy2_width;
+    wire [2:0] enemy0_color, enemy1_color, enemy2_color;
+    wire [14:0] enemies;
+    wire [3:0] enemies_enabled;
     reg [7:0] enemyX;
     reg [6:0] enemyY;
-    reg [2:0] enemy_width;
+    reg [2:0] enemy_width, enemy_color;
     reg [3:0] enemies_alive;
-    wire [3:0] enemies_enabled;
-    wire [14:0] enemies;
-    wire [2:0] enemy_color;
 
     assign enemy_count = 4'd3;
     assign enemy_move = enemy0_move || enemy1_move || enemy2_move;
@@ -114,6 +114,9 @@ module project
     assign enemy0_enable = (enemies & 15'b000000000000001) > 0 ? 1 : 0;
     assign enemy1_enable = (enemies & 15'b000000000000010) > 0 ? 1 : 0;
     assign enemy2_enable = (enemies & 15'b000000000000100) > 0 ? 1 : 0;
+    assign enemy0_color = 3'b100;
+    assign enemy1_color = 3'b010;
+    assign enemy2_color = 3'b001;
 
     always@(*) begin
         case(enemy_out)
@@ -121,21 +124,25 @@ module project
                 enemyX <= enemy0X;
                 enemyY <= enemy0Y;
                 enemy_width <= enemy0_width;
+                enemy_color <= enemy0_color;
             end
             4'd1: begin
                 enemyX <= enemy1X;
                 enemyY <= enemy1Y;
                 enemy_width <= enemy1_width;
+                enemy_color <= enemy1_color;
             end
             4'd2: begin
                 enemyX <= enemy2X;
                 enemyY <= enemy2Y;
                 enemy_width <= enemy2_width;
+                enemy_color <= enemy2_color;
             end
             default: begin
                 enemyX <= enemy0X;
                 enemyY <= enemy0Y;
                 enemy_width <= enemy0_width;
+                enemy_color <= enemy0_color;
             end
         endcase
         
@@ -212,8 +219,7 @@ module project
         .clk(CLOCK_50),
         .move(bullet_move),
         .bulletX(bulletX),
-        .bulletY(bulletY),
-        .enemy_color(enemy_color)
+        .bulletY(bulletY)
     );
 
     animate_control ac0(
@@ -236,8 +242,6 @@ module project
         .enemies(enemies)
     );
 
-    // TODO: having different size enemies causes random stuff
-    // adding enemies screws up game over
     enemy_control ec0(
         .width(3'd3),
         .start_x(8'd80),

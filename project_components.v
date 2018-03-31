@@ -86,12 +86,13 @@ module enemy_control(
     output [2:0] enemy_width,
     output reg move,
     output reg [7:0] enemyX, // coordinates for the top left pixel of the enemy
-    output reg [6:0] enemyY
+    output reg [6:0] enemyY,
+	 output reg alive
     );
     
     localparam RATE_DIV = 28'd1000000; // lower to move faster
     reg [27:0] counter;
-    reg left, up, alive;
+    reg left, up;
     
     always@(posedge clk) begin
         if (!resetn || load_level) begin
@@ -148,12 +149,12 @@ module enemy_control(
     end
     
     // collision with player
-    assign player_hit = (playerX <= (enemyX + enemy_width - 1) && enemyX <= (playerX + `PLAYER_WIDTH - 1))
-        && (playerY <= (enemyY + enemy_width - 1) && enemyY <= (playerY + `PLAYER_WIDTH - 1));
+    assign player_hit = alive && ((playerX <= (enemyX + enemy_width - 1) && enemyX <= (playerX + `PLAYER_WIDTH - 1))
+        && (playerY <= (enemyY + enemy_width - 1) && enemyY <= (playerY + `PLAYER_WIDTH - 1)));
         
     // collision with bullet
-    assign bullet_hit = (bulletX <= (enemyX + enemy_width - 1) && enemyX <= bulletX)
-        && (bulletY <= (enemyY + enemy_width - 1) && enemyY <= bulletY);
+    assign bullet_hit = alive && ((bulletX <= (enemyX + enemy_width - 1) && enemyX <= bulletX)
+        && (bulletY <= (enemyY + enemy_width - 1) && enemyY <= bulletY));
      
     assign enemy_width = alive ? width : 0;
 endmodule

@@ -102,14 +102,15 @@ module project
     wire enemy_move, enemy0_move, enemy1_move, enemy2_move, enemy3_move, enemy4_move;
     wire player_hit, player_hit0, player_hit1, player_hit2, player_hit3, player_hit4;
     wire bullet_hit, bullet_hit0, bullet_hit1, bullet_hit2, bullet_hit3, bullet_hit4;
-    wire [2:0] enemy0_width, enemy1_width, enemy2_width, enemy3_width, enemy4_width;
+    wire [3:0] enemy0_width, enemy1_width, enemy2_width, enemy3_width, enemy4_width;
     wire [2:0] enemy0_color, enemy1_color, enemy2_color, enemy3_color, enemy4_color;
 	 wire enemy0_alive, enemy1_alive, enemy2_alive, enemy3_alive, enemy4_alive;
     wire [14:0] enemies;
     wire [3:0] enemies_enabled;
     reg [7:0] enemyX;
     reg [6:0] enemyY;
-    reg [2:0] enemy_width, enemy_color;
+    reg [3:0] enemy_width;
+	 reg [2:0] enemy_color;
     reg [3:0] enemies_alive;
 	 reg bullet_hit_prev;
 
@@ -278,7 +279,7 @@ module project
     );
 
     enemy_control ec0(
-        .width(3'd3),
+        .width(4'd3),
         .start_x(8'd80),
         .start_y(7'd60),
         .d_x(3'd1),
@@ -304,7 +305,7 @@ module project
     );
 
     enemy_control ec1(
-        .width(3'd5),
+        .width(4'd5),
         .start_x(8'd100),
         .start_y(7'd50),
         .d_x(3'd1),
@@ -330,7 +331,7 @@ module project
     );
 
     enemy_control ec2(
-        .width(3'd7),
+        .width(4'd7),
         .start_x(8'd30),
         .start_y(7'd100),
         .d_x(3'd1),
@@ -356,7 +357,7 @@ module project
     );
 	 
 	 enemy_control ec3(
-        .width(3'd5),
+        .width(4'd13),
         .start_x(8'd50),
         .start_y(7'd100),
         .d_x(3'd2),
@@ -382,7 +383,7 @@ module project
     );
 	 
 	 enemy_control ec4(
-        .width(3'd7),
+        .width(4'd11),
         .start_x(8'd80),
         .start_y(7'd20),
         .d_x(3'd1),
@@ -592,7 +593,7 @@ module datapath(
     input [2:0] enemy_color,
     input [7:0] bulletX,
     input [6:0] bulletY,
-    input [2:0] enemy_width,
+    input [3:0] enemy_width,
     input [3:0] enemy_count,
     input [2:0] ani_state,
     input resetn,

@@ -65,7 +65,7 @@ module player_control(
 endmodule
 
 module enemy_control(
-    input [2:0] width, // width of square enemy in pixels
+    input [3:0] width, // width of square enemy in pixels
     input [7:0] start_x,
     input [6:0] start_y,
     input [2:0] d_x, // slope d_y/d_x
@@ -83,7 +83,7 @@ module enemy_control(
     input clk,
     output player_hit, // player collision
     output bullet_hit,
-    output [2:0] enemy_width,
+    output [3:0] enemy_width,
     output reg move,
     output reg [7:0] enemyX, // coordinates for the top left pixel of the enemy
     output reg [6:0] enemyY,

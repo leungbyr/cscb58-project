@@ -66,6 +66,7 @@ endmodule
 
 module enemy_control(
     input [3:0] width, // width of square enemy in pixels
+    input [27:0] rate_div, // lower to move faster
     input [7:0] start_x,
     input [6:0] start_y,
     input [2:0] d_x, // slope d_y/d_x
@@ -87,10 +88,9 @@ module enemy_control(
     output reg move,
     output reg [7:0] enemyX, // coordinates for the top left pixel of the enemy
     output reg [6:0] enemyY,
-	 output reg alive
+    output reg alive
     );
     
-    localparam RATE_DIV = 28'd1000000; // lower to move faster
     reg [27:0] counter;
     reg left, up;
     
@@ -105,7 +105,7 @@ module enemy_control(
             alive <= enable;
         end
         if (play && enable) begin
-            if (counter == RATE_DIV) begin
+            if (counter == rate_div) begin
                 if (left) begin
                     if (enemyX <= d_x) begin // hit left edge, change directions
                         enemyX <= 0;

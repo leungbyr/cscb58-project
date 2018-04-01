@@ -3,7 +3,7 @@
 // Names: Jeffrey So, Ricky Chen, Byron Leung, Brandon Shewnarain
 // Description: Insert Description Here
 
-// TODO: enemies still have hitbox when not enabled or dead, counter somehow gets reset after drawing bullet
+// TODO: counter somehow gets reset after drawing bullet
 
 `include "vga_adapter/vga_adapter.v"
 `include "vga_adapter/vga_address_translator.v"
@@ -94,43 +94,38 @@ module project
     assign level = SW[2:0];
 
     wire load_level, level_pause, play, game_over, level_select; // game states
+    wire [2:0] ani_state;
+    wire player_move, bullet_move, animate_done;
+    wire [3:0] enemy_count, enemy_out;
     wire [7:0] playerX, bulletX, enemy0X, enemy1X, enemy2X, enemy3X, enemy4X;
     wire [6:0] playerY, bulletY, enemy0Y, enemy1Y, enemy2Y, enemy3Y, enemy4Y;
-    wire [2:0] ani_state;
-    wire [3:0] enemy_count, enemy_out;
-    wire player_move, bullet_move, animate_done;
-    wire enemy_move, enemy0_move, enemy1_move, enemy2_move, enemy3_move, enemy4_move;
-    wire player_hit, player_hit0, player_hit1, player_hit2, player_hit3, player_hit4;
-    wire bullet_hit, bullet_hit0, bullet_hit1, bullet_hit2, bullet_hit3, bullet_hit4;
     wire [3:0] enemy0_width, enemy1_width, enemy2_width, enemy3_width, enemy4_width;
     wire [2:0] enemy0_color, enemy1_color, enemy2_color, enemy3_color, enemy4_color;
-	 wire enemy0_alive, enemy1_alive, enemy2_alive, enemy3_alive, enemy4_alive;
+    wire enemy0_move, enemy1_move, enemy2_move, enemy3_move, enemy4_move;
+    wire player_hit0, player_hit1, player_hit2, player_hit3, player_hit4;
+    wire bullet_hit0, bullet_hit1, bullet_hit2, bullet_hit3, bullet_hit4;
+    wire enemy0_alive, enemy1_alive, enemy2_alive, enemy3_alive, enemy4_alive;
     wire [14:0] enemies;
-    wire [3:0] enemies_enabled;
     reg [7:0] enemyX;
     reg [6:0] enemyY;
     reg [3:0] enemy_width;
-	 reg [2:0] enemy_color;
-    reg [3:0] enemies_alive;
-	 reg bullet_hit_prev;
+    reg [2:0] enemy_color;
 
-    assign enemy_count = 4'd5;
+    assign enemy_count = 4'd5; // total number of instantiated enemies
     assign enemy_move = enemy0_move || enemy1_move || enemy2_move || enemy3_move|| enemy4_move;
     assign player_hit = player_hit0 || player_hit1 || player_hit2 || player_hit3 || player_hit4;
     assign bullet_hit = bullet_hit0 || bullet_hit1 || bullet_hit2 || bullet_hit3 || bullet_hit4;
-	 assign enemies_dead = !(enemy0_alive || enemy1_alive || enemy2_alive || enemy3_alive || enemy4_alive);
+    assign enemy_alive = enemy0_alive || enemy1_alive || enemy2_alive || enemy3_alive || enemy4_alive;
     assign enemy0_enable = (enemies & 15'b000000000000001) > 0 ? 1 : 0;
     assign enemy1_enable = (enemies & 15'b000000000000010) > 0 ? 1 : 0;
     assign enemy2_enable = (enemies & 15'b000000000000100) > 0 ? 1 : 0;
-	 assign enemy3_enable = (enemies & 15'b000000000001000) > 0 ? 1 : 0;
-	 assign enemy4_enable = (enemies & 15'b000000000010000) > 0 ? 1 : 0;
+    assign enemy3_enable = (enemies & 15'b000000000001000) > 0 ? 1 : 0;
+    assign enemy4_enable = (enemies & 15'b000000000010000) > 0 ? 1 : 0;
     assign enemy0_color = 3'b001;
     assign enemy1_color = 3'b010;
     assign enemy2_color = 3'b011;
-	 assign enemy3_color = 3'b100;
-	 assign enemy4_color = 3'b101;
-	 
-	 initial bullet_hit_prev <= 0;
+    assign enemy3_color = 3'b100;
+    assign enemy4_color = 3'b101;
 
     always@(*) begin
         case(enemy_out)
@@ -152,13 +147,13 @@ module project
                 enemy_width <= enemy2_width;
                 enemy_color <= enemy2_color;
             end
-				4'd3: begin
+            4'd3: begin
                 enemyX <= enemy3X;
                 enemyY <= enemy3Y;
                 enemy_width <= enemy3_width;
                 enemy_color <= enemy3_color;
             end
-				4'd4: begin
+            4'd4: begin
                 enemyX <= enemy4X;
                 enemyY <= enemy4Y;
                 enemy_width <= enemy4_width;
@@ -171,27 +166,7 @@ module project
                 enemy_color <= enemy0_color;
             end
         endcase
-        
-        if (load_level) begin
-            enemies_alive <= enemies_enabled;
-        end else if (bullet_hit && !bullet_hit_prev) begin
-		      enemies_alive <= enemies_alive - 1;
-				bullet_hit_prev <= 1;
-		  end else if (bullet_hit_prev && !bullet_hit) begin
-		      bullet_hit_prev <= 0;
-		  end
     end
-    
-    //always@(posedge bullet_hit) begin
-    //    enemies_alive <= enemies_alive - 1;
-    //end
-    
-    // DEBUGGING
-    //assign LEDR[0] = load_level;
-    //assign LEDR[1] = level_pause;
-    //assign LEDR[2] = play
-    //assign LEDR[3] = game_over;
-    //assign LEDR[14:11] = count;
 
     hex_display hd0(
         .IN(level),
@@ -222,7 +197,7 @@ module project
     control c0(
         .go(go),
         .player_hit(player_hit),
-        .enemies_dead(enemies_dead),
+        .enemy_alive(enemy_alive),
         .resetn(resetn),
         .clk(CLOCK_50),
         .load_level(load_level),
@@ -274,12 +249,12 @@ module project
         .level(level),
         .level_select(level_select),
         .clk(CLOCK_50),
-        .enemies_enabled(enemies_enabled),
         .enemies(enemies)
     );
 
     enemy_control ec0(
         .width(4'd3),
+        .rate_div(28'd1000000),
         .start_x(8'd80),
         .start_y(7'd60),
         .d_x(3'd1),
@@ -301,11 +276,12 @@ module project
         .enemyX(enemy0X),
         .enemyY(enemy0Y),
         .enemy_width(enemy0_width),
-		  .alive(enemy0_alive)
+        .alive(enemy0_alive)
     );
 
     enemy_control ec1(
         .width(4'd5),
+        .rate_div(28'd1000000),
         .start_x(8'd100),
         .start_y(7'd50),
         .d_x(3'd1),
@@ -327,11 +303,12 @@ module project
         .enemyX(enemy1X),
         .enemyY(enemy1Y),
         .enemy_width(enemy1_width),
-		  .alive(enemy1_alive)
+        .alive(enemy1_alive)
     );
 
     enemy_control ec2(
         .width(4'd7),
+        .rate_div(28'd1000000),
         .start_x(8'd30),
         .start_y(7'd100),
         .d_x(3'd1),
@@ -353,11 +330,12 @@ module project
         .enemyX(enemy2X),
         .enemyY(enemy2Y),
         .enemy_width(enemy2_width),
-		  .alive(enemy2_alive)
+        .alive(enemy2_alive)
     );
-	 
-	 enemy_control ec3(
+     
+    enemy_control ec3(
         .width(4'd13),
+        .rate_div(28'd1000000),
         .start_x(8'd50),
         .start_y(7'd100),
         .d_x(3'd2),
@@ -379,11 +357,12 @@ module project
         .enemyX(enemy3X),
         .enemyY(enemy3Y),
         .enemy_width(enemy3_width),
-		  .alive(enemy3_alive)
+        .alive(enemy3_alive)
     );
-	 
-	 enemy_control ec4(
+     
+    enemy_control ec4(
         .width(4'd11),
+        .rate_div(28'd1000000),
         .start_x(8'd80),
         .start_y(7'd20),
         .d_x(3'd1),
@@ -405,7 +384,7 @@ module project
         .enemyX(enemy4X),
         .enemyY(enemy4Y),
         .enemy_width(enemy4_width),
-		  .alive(enemy4_alive)
+        .alive(enemy4_alive)
     );
 endmodule
 
@@ -413,7 +392,7 @@ endmodule
 module control(
     input go,
     input player_hit,
-    input enemies_dead,
+    input enemy_alive,
     input resetn,
     input clk,
     output load_level,
@@ -448,7 +427,7 @@ module control(
             end
             PLAY: begin
                 if (go) state_next <= PAUSING;
-                else if (player_hit || enemies_dead) state_next <= GAME_OVER;
+                else if (player_hit || !enemy_alive) state_next <= GAME_OVER;
                 else state_next <= PLAY;
             end
             PAUSING: begin
@@ -552,7 +531,6 @@ module level_select(
     input [2:0] level,
     input level_select,
     input clk,
-    output reg [3:0] enemies_enabled,
     output reg [14:0] enemies
     );
     
@@ -561,23 +539,18 @@ module level_select(
             case (level)
                 3'd1: begin
                     enemies <= 15'b000000000000011;  
-                    enemies_enabled <= 4'd2;
                 end
                 3'd2: begin
                     enemies <= 15'b000000000000111;
-                    enemies_enabled <= 4'd3;
                 end
-					 3'd3: begin
+                3'd3: begin
                     enemies <= 15'b000000000011000;
-                    enemies_enabled <= 4'd2;
                 end
-					 3'd4: begin
+                3'd4: begin
                     enemies <= 15'b000000000011111;
-                    enemies_enabled <= 4'd5;
                 end
                 default: begin
                     enemies <= 15'b000000000000011;
-                    enemies_enabled <= 4'd2;
                 end
             endcase
         end
@@ -611,13 +584,13 @@ module datapath(
     reg [27:0] counter;
     reg [7:0] player_x, enemy_x, bullet_x;
     reg [6:0] player_y, enemy_y, bullet_y;
-	 reg bullet_drawn;
+     reg bullet_drawn;
 
     initial begin
         ani_done <= 0;
         counter <= 0;
         enemy_out <= 0;
-		  bullet_drawn <= 0;
+        bullet_drawn <= 0;
     end
 
     always@(posedge clk) begin
@@ -654,7 +627,7 @@ module datapath(
                 bullet_y <= bulletY;
                 x <= playerX;
                 y <= playerY;
-					 bullet_drawn <= 0;
+                bullet_drawn <= 0;
             end else if (counter < `PLAYER_SIZE) begin
                 // draw player
                 if (y <= player_y + `PLAYER_WIDTH - 1) begin
@@ -674,7 +647,7 @@ module datapath(
                     enemy_x <= enemyX;
                     enemy_y <= enemyY;
                 end else if (y <= enemy_y + enemy_width - 1 && !bullet_drawn) begin
-					     colour <= enemy_color;
+                    colour <= enemy_color;
                     if (x < enemy_x + enemy_width - 1) begin
                         x <= x + 1;
                     end else if (y < enemy_y + enemy_width - 1) begin
@@ -690,7 +663,7 @@ module datapath(
                 // draw bullet
                 x <= bullet_x;
                 y <= bullet_y;
-					 bullet_drawn <= 1;
+                bullet_drawn <= 1;
             end
             
             if ((counter == `PLAYER_SIZE + (enemy_width * enemy_width) - 1

@@ -874,9 +874,7 @@ module datapath(
             end
 
             // done drawing
-            // TODO: remove or replace this
-            // if (counter >= `PLAYER_SIZE + (enemy_width * enemy_width) + 1) begin
-            if (bullet_drawn) begin
+            if (counter >= `PLAYER_SIZE + (enemy_width * enemy_width) + 1) begin
                 ani_done <= 1'b1;
                 enemy_out <= 0;
             end

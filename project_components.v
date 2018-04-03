@@ -104,7 +104,7 @@ module enemy_control(
             move <= 0;
             alive <= enable;
         end
-        if (play && enable) begin
+        if (play && alive) begin
             if (counter == rate_div) begin
                 if (left) begin
                     if (enemyX <= d_x) begin // hit left edge, change directions

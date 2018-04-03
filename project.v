@@ -3,8 +3,6 @@
 // Names: Jeffrey So, Ricky Chen, Byron Leung, Brandon Shewnarain
 // Description: Insert Description Here
 
-// TODO: counter somehow gets reset after drawing bullet
-
 `include "vga_adapter/vga_adapter.v"
 `include "vga_adapter/vga_address_translator.v"
 `include "vga_adapter/vga_controller.v"
@@ -90,42 +88,64 @@ module project
     assign left = ~KEY[3];
     assign right = ~KEY[2];
     assign fire = ~KEY[1];
-    wire [2:0] level;
+    wire [2:0] level, current_level;
     assign level = SW[2:0];
 
     wire load_level, level_pause, play, game_over, level_select; // game states
     wire [2:0] ani_state;
     wire player_move, bullet_move, animate_done;
     wire [3:0] enemy_count, enemy_out;
-    wire [7:0] playerX, bulletX, enemy0X, enemy1X, enemy2X, enemy3X, enemy4X;
-    wire [6:0] playerY, bulletY, enemy0Y, enemy1Y, enemy2Y, enemy3Y, enemy4Y;
-    wire [3:0] enemy0_width, enemy1_width, enemy2_width, enemy3_width, enemy4_width;
-    wire [2:0] enemy0_color, enemy1_color, enemy2_color, enemy3_color, enemy4_color;
-    wire enemy0_move, enemy1_move, enemy2_move, enemy3_move, enemy4_move;
-    wire player_hit0, player_hit1, player_hit2, player_hit3, player_hit4;
-    wire bullet_hit0, bullet_hit1, bullet_hit2, bullet_hit3, bullet_hit4;
-    wire enemy0_alive, enemy1_alive, enemy2_alive, enemy3_alive, enemy4_alive;
     wire [14:0] enemies;
+    wire [7:0] playerX, bulletX, enemy0X, enemy1X, enemy2X, enemy3X, enemy4X, enemy5X, enemy6X, 
+        enemy7X, enemy8X, enemy9X;
+    wire [6:0] playerY, bulletY, enemy0Y, enemy1Y, enemy2Y, enemy3Y, enemy4Y, enemy5Y, enemy6Y,
+        enemy7Y, enemy8Y, enemy9Y;
+    wire [3:0] enemy0_width, enemy1_width, enemy2_width, enemy3_width, enemy4_width, enemy5_width,
+        enemy6_width, enemy7_width, enemy8_width, enemy9_width;
+    wire [2:0] enemy0_color, enemy1_color, enemy2_color, enemy3_color, enemy4_color, enemy5_color,
+        enemy6_color, enemy7_color, enemy8_color, enemy9_color;
+    wire enemy0_move, enemy1_move, enemy2_move, enemy3_move, enemy4_move, enemy5_move, enemy6_move,
+        enemy7_move, enemy8_move, enemy9_move;
+    wire player_hit0, player_hit1, player_hit2, player_hit3, player_hit4, player_hit5, player_hit6,
+        player_hit7, player_hit8, player_hit9;
+    wire bullet_hit0, bullet_hit1, bullet_hit2, bullet_hit3, bullet_hit4, bullet_hit5, bullet_hit6,
+        bullet_hit7, bullet_hit8, bullet_hit9;
+    wire enemy0_alive, enemy1_alive, enemy2_alive, enemy3_alive, enemy4_alive, enemy5_alive,
+        enemy6_alive, enemy7_alive, enemy8_alive, enemy9_alive;
     reg [7:0] enemyX;
     reg [6:0] enemyY;
     reg [3:0] enemy_width;
     reg [2:0] enemy_color;
 
-    assign enemy_count = 4'd5; // total number of instantiated enemies
-    assign enemy_move = enemy0_move || enemy1_move || enemy2_move || enemy3_move|| enemy4_move;
-    assign player_hit = player_hit0 || player_hit1 || player_hit2 || player_hit3 || player_hit4;
-    assign bullet_hit = bullet_hit0 || bullet_hit1 || bullet_hit2 || bullet_hit3 || bullet_hit4;
-    assign enemy_alive = enemy0_alive || enemy1_alive || enemy2_alive || enemy3_alive || enemy4_alive;
+    assign enemy_count = 4'd10; // total number of instantiated enemies
+    assign enemy_move = enemy0_move || enemy1_move || enemy2_move || enemy3_move || enemy4_move 
+        || enemy5_move || enemy6_move || enemy7_move || enemy8_move || enemy9_move;
+    assign player_hit = player_hit0 || player_hit1 || player_hit2 || player_hit3 || player_hit4 
+        || player_hit5 || player_hit6 || player_hit7 || player_hit8 || player_hit9;
+    assign bullet_hit = bullet_hit0 || bullet_hit1 || bullet_hit2 || bullet_hit3 || bullet_hit4 
+        || bullet_hit5 || bullet_hit6 || bullet_hit7 || bullet_hit8 || bullet_hit9;
+    assign enemy_alive = enemy0_alive || enemy1_alive || enemy2_alive || enemy3_alive || enemy4_alive
+        || enemy5_alive || enemy6_alive || enemy7_alive || enemy8_alive || enemy9_alive;
     assign enemy0_enable = (enemies & 15'b000000000000001) > 0 ? 1 : 0;
     assign enemy1_enable = (enemies & 15'b000000000000010) > 0 ? 1 : 0;
     assign enemy2_enable = (enemies & 15'b000000000000100) > 0 ? 1 : 0;
     assign enemy3_enable = (enemies & 15'b000000000001000) > 0 ? 1 : 0;
     assign enemy4_enable = (enemies & 15'b000000000010000) > 0 ? 1 : 0;
+    assign enemy5_enable = (enemies & 15'b000000000100000) > 0 ? 1 : 0;
+    assign enemy6_enable = (enemies & 15'b000000001000000) > 0 ? 1 : 0;
+    assign enemy7_enable = (enemies & 15'b000000010000000) > 0 ? 1 : 0;
+    assign enemy8_enable = (enemies & 15'b000000100000000) > 0 ? 1 : 0;
+    assign enemy9_enable = (enemies & 15'b000001000000000) > 0 ? 1 : 0;
     assign enemy0_color = 3'b001;
     assign enemy1_color = 3'b010;
     assign enemy2_color = 3'b011;
     assign enemy3_color = 3'b100;
     assign enemy4_color = 3'b101;
+    assign enemy5_color = 3'b001;
+    assign enemy6_color = 3'b010;
+    assign enemy7_color = 3'b011;
+    assign enemy8_color = 3'b100;
+    assign enemy9_color = 3'b101;
 
     always@(*) begin
         case(enemy_out)
@@ -159,6 +179,36 @@ module project
                 enemy_width <= enemy4_width;
                 enemy_color <= enemy4_color;
             end
+            4'd5: begin
+                enemyX <= enemy5X;
+                enemyY <= enemy5Y;
+                enemy_width <= enemy5_width;
+                enemy_color <= enemy5_color;
+            end
+            4'd6: begin
+                enemyX <= enemy6X;
+                enemyY <= enemy6Y;
+                enemy_width <= enemy6_width;
+                enemy_color <= enemy6_color;
+            end
+            4'd7: begin
+                enemyX <= enemy7X;
+                enemyY <= enemy7Y;
+                enemy_width <= enemy7_width;
+                enemy_color <= enemy7_color;
+            end
+            4'd8: begin
+                enemyX <= enemy8X;
+                enemyY <= enemy8Y;
+                enemy_width <= enemy8_width;
+                enemy_color <= enemy8_color;
+            end
+            4'd9: begin
+                enemyX <= enemy9X;
+                enemyY <= enemy9Y;
+                enemy_width <= enemy9_width;
+                enemy_color <= enemy9_color;
+            end
             default: begin
                 enemyX <= enemy0X;
                 enemyY <= enemy0Y;
@@ -169,7 +219,7 @@ module project
     end
 
     hex_display hd0(
-        .IN(level),
+        .IN(current_level),
         .OUT(HEX0)
     );
     
@@ -249,14 +299,15 @@ module project
         .level(level),
         .level_select(level_select),
         .clk(CLOCK_50),
+        .current_level(current_level),
         .enemies(enemies)
     );
 
     enemy_control ec0(
-        .width(4'd3),
+        .width(4'd13),
         .rate_div(28'd1000000),
-        .start_x(8'd80),
-        .start_y(7'd60),
+        .start_x(8'd40),
+        .start_y(7'd30),
         .d_x(3'd1),
         .d_y(3'd1),
         .leftwards(1'b0),
@@ -280,10 +331,10 @@ module project
     );
 
     enemy_control ec1(
-        .width(4'd5),
+        .width(4'd13),
         .rate_div(28'd1000000),
-        .start_x(8'd100),
-        .start_y(7'd50),
+        .start_x(8'd120),
+        .start_y(7'd30),
         .d_x(3'd1),
         .d_y(3'd1),
         .leftwards(1'b1),
@@ -307,12 +358,12 @@ module project
     );
 
     enemy_control ec2(
-        .width(4'd7),
-        .rate_div(28'd1000000),
-        .start_x(8'd30),
-        .start_y(7'd100),
-        .d_x(3'd1),
-        .d_y(3'd1),
+        .width(4'd9),
+        .rate_div(28'd2000000),
+        .start_x(8'd40),
+        .start_y(7'd30),
+        .d_x(3'd2),
+        .d_y(3'd3),
         .leftwards(1'b0),
         .upwards(1'b1),
         .playerX(playerX),
@@ -332,16 +383,16 @@ module project
         .enemy_width(enemy2_width),
         .alive(enemy2_alive)
     );
-     
+    
     enemy_control ec3(
-        .width(4'd13),
-        .rate_div(28'd1000000),
-        .start_x(8'd50),
-        .start_y(7'd100),
+        .width(4'd9),
+        .rate_div(28'd2000000),
+        .start_x(8'd120),
+        .start_y(7'd30),
         .d_x(3'd2),
-        .d_y(3'd1),
-        .leftwards(1'b0),
-        .upwards(1'b1),
+        .d_y(3'd3),
+        .leftwards(1'b1),
+        .upwards(1'b0),
         .playerX(playerX),
         .playerY(playerY),
         .bulletX(bulletX),
@@ -361,14 +412,14 @@ module project
     );
      
     enemy_control ec4(
-        .width(4'd11),
+        .width(4'd9),
         .rate_div(28'd1000000),
         .start_x(8'd80),
-        .start_y(7'd20),
-        .d_x(3'd1),
-        .d_y(3'd2),
-        .leftwards(1'b1),
-        .upwards(1'b1),
+        .start_y(7'd30),
+        .d_x(3'd2),
+        .d_y(3'd1),
+        .leftwards(1'b0),
+        .upwards(1'b0),
         .playerX(playerX),
         .playerY(playerY),
         .bulletX(bulletX),
@@ -385,6 +436,141 @@ module project
         .enemyY(enemy4Y),
         .enemy_width(enemy4_width),
         .alive(enemy4_alive)
+    );
+    
+    enemy_control ec5(
+        .width(4'd6),
+        .rate_div(28'd500000),
+        .start_x(8'd50),
+        .start_y(7'd30),
+        .d_x(3'd1),
+        .d_y(3'd1),
+        .leftwards(1'b0),
+        .upwards(1'b1),
+        .playerX(playerX),
+        .playerY(playerY),
+        .bulletX(bulletX),
+        .bulletY(bulletY),
+        .enable(enemy5_enable),
+        .load_level(load_level),
+        .play(play),
+        .resetn(resetn),
+        .clk(CLOCK_50),
+        .player_hit(player_hit5),
+        .bullet_hit(bullet_hit5),
+        .move(enemy5_move),
+        .enemyX(enemy5X),
+        .enemyY(enemy5Y),
+        .enemy_width(enemy5_width),
+        .alive(enemy5_alive)
+    );
+    
+    enemy_control ec6(
+        .width(4'd6),
+        .rate_div(28'd700000),
+        .start_x(8'd110),
+        .start_y(7'd30),
+        .d_x(3'd1),
+        .d_y(3'd2),
+        .leftwards(1'b1),
+        .upwards(1'b0),
+        .playerX(playerX),
+        .playerY(playerY),
+        .bulletX(bulletX),
+        .bulletY(bulletY),
+        .enable(enemy6_enable),
+        .load_level(load_level),
+        .play(play),
+        .resetn(resetn),
+        .clk(CLOCK_50),
+        .player_hit(player_hit6),
+        .bullet_hit(bullet_hit6),
+        .move(enemy6_move),
+        .enemyX(enemy6X),
+        .enemyY(enemy6Y),
+        .enemy_width(enemy6_width),
+        .alive(enemy6_alive)
+    );
+    
+    enemy_control ec7(
+        .width(4'd6),
+        .rate_div(28'd1500000),
+        .start_x(8'd80),
+        .start_y(7'd70),
+        .d_x(3'd2),
+        .d_y(3'd3),
+        .leftwards(1'b0),
+        .upwards(1'b0),
+        .playerX(playerX),
+        .playerY(playerY),
+        .bulletX(bulletX),
+        .bulletY(bulletY),
+        .enable(enemy7_enable),
+        .load_level(load_level),
+        .play(play),
+        .resetn(resetn),
+        .clk(CLOCK_50),
+        .player_hit(player_hit7),
+        .bullet_hit(bullet_hit7),
+        .move(enemy7_move),
+        .enemyX(enemy7X),
+        .enemyY(enemy7Y),
+        .enemy_width(enemy7_width),
+        .alive(enemy7_alive)
+    );
+    
+    enemy_control ec8(
+        .width(4'd3),
+        .rate_div(28'd1000000),
+        .start_x(8'd20),
+        .start_y(7'd70),
+        .d_x(3'd3),
+        .d_y(3'd2),
+        .leftwards(1'b1),
+        .upwards(1'b0),
+        .playerX(playerX),
+        .playerY(playerY),
+        .bulletX(bulletX),
+        .bulletY(bulletY),
+        .enable(enemy8_enable),
+        .load_level(load_level),
+        .play(play),
+        .resetn(resetn),
+        .clk(CLOCK_50),
+        .player_hit(player_hit8),
+        .bullet_hit(bullet_hit8),
+        .move(enemy8_move),
+        .enemyX(enemy8X),
+        .enemyY(enemy8Y),
+        .enemy_width(enemy8_width),
+        .alive(enemy8_alive)
+    );
+    
+    enemy_control ec9(
+        .width(4'd3),
+        .rate_div(28'd300000),
+        .start_x(8'd140),
+        .start_y(7'd70),
+        .d_x(3'd1),
+        .d_y(3'd1),
+        .leftwards(1'b1),
+        .upwards(1'b0),
+        .playerX(playerX),
+        .playerY(playerY),
+        .bulletX(bulletX),
+        .bulletY(bulletY),
+        .enable(enemy9_enable),
+        .load_level(load_level),
+        .play(play),
+        .resetn(resetn),
+        .clk(CLOCK_50),
+        .player_hit(player_hit9),
+        .bullet_hit(bullet_hit9),
+        .move(enemy9_move),
+        .enemyX(enemy9X),
+        .enemyY(enemy9Y),
+        .enemy_width(enemy9_width),
+        .alive(enemy9_alive)
     );
 endmodule
 
@@ -531,6 +717,7 @@ module level_select(
     input [2:0] level,
     input level_select,
     input clk,
+    output [2:0] current_level,
     output reg [14:0] enemies
     );
     
@@ -541,13 +728,22 @@ module level_select(
                     enemies <= 15'b000000000000011;  
                 end
                 3'd2: begin
-                    enemies <= 15'b000000000000111;
+                    enemies <= 15'b000000000001100;
                 end
                 3'd3: begin
-                    enemies <= 15'b000000000011000;
+                    enemies <= 15'b000000000010011;
                 end
                 3'd4: begin
-                    enemies <= 15'b000000000011111;
+                    enemies <= 15'b000000000011100;
+                end
+                3'd5: begin
+                    enemies <= 15'b000000011100000;
+                end
+                3'd6: begin
+                    enemies <= 15'b000001110000000;
+                end
+                3'd7: begin
+                    enemies <= 15'b000001111100000;
                 end
                 default: begin
                     enemies <= 15'b000000000000011;
@@ -555,6 +751,8 @@ module level_select(
             endcase
         end
     end
+    
+    assign current_level = level_select ? level : current_level;
 endmodule
 
 // does the drawing
@@ -584,7 +782,7 @@ module datapath(
     reg [27:0] counter;
     reg [7:0] player_x, enemy_x, bullet_x;
     reg [6:0] player_y, enemy_y, bullet_y;
-     reg bullet_drawn;
+    reg bullet_drawn;
 
     initial begin
         ani_done <= 0;
@@ -677,7 +875,9 @@ module datapath(
             end
 
             // done drawing
-            if (counter >= `PLAYER_SIZE + (enemy_width * enemy_width) + 1) begin
+            // TODO: remove or replace this
+            // if (counter >= `PLAYER_SIZE + (enemy_width * enemy_width) + 1) begin
+            if (bullet_drawn) begin
                 ani_done <= 1'b1;
                 enemy_out <= 0;
             end

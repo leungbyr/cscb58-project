@@ -717,7 +717,7 @@ module level_select(
     input [2:0] level,
     input level_select,
     input clk,
-    output [2:0] current_level,
+    output reg [2:0] current_level,
     output reg [14:0] enemies
     );
     
@@ -749,10 +749,9 @@ module level_select(
                     enemies <= 15'b000000000000011;
                 end
             endcase
+            current_level <= level;
         end
     end
-    
-    assign current_level = level_select ? level : current_level;
 endmodule
 
 // does the drawing
